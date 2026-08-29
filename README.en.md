@@ -17,6 +17,7 @@ An open-source **unified manager for local AI services**: manage all the AI serv
 - 🤖 **AI-agent friendly**: REST API with a self-describing schema — another AI can register a freshly built project with a single HTTP call
 - 🧩 **Extensible**: a new launcher type = one file + one registration line; frontend buttons render from capability declarations
 - 📋 **Logs**: per-project output viewer (in-memory ring buffer + `data/logs/` on disk)
+- 🌗 **Light / dark theme**: one click in the header; follows the system preference by default and remembers your manual choice
 - 🔒 **Local-first**: binds to `127.0.0.1` by default; optional `WORKBENCH_TOKEN` for write auth
 - 📦 **Lightweight**: one backend dependency (express), zero-dependency build-free frontend
 

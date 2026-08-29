@@ -4,6 +4,28 @@ const state = { projects: [], search: '' };
 const $ = (sel, el = document) => el.querySelector(sel);
 const $$ = (sel, el = document) => [...el.querySelectorAll(sel)];
 
+// —— 主题切换（深色 / 亮色，localStorage 持久化，默认跟随系统） ——
+function syncThemeButton() {
+  const btn = $('#btn-theme');
+  if (!btn) return;
+  // 按钮图标显示"将要切换到"的模式
+  const light = document.documentElement.dataset.theme === 'light';
+  btn.textContent = light ? '🌙' : '☀️';
+  btn.title = light ? '切换到深色模式' : '切换到亮色模式';
+}
+
+function applyTheme(theme) {
+  document.documentElement.dataset.theme = theme;
+  try {
+    localStorage.setItem('wb-theme', theme);
+  } catch { /* 忽略 */ }
+  syncThemeButton();
+}
+
+function toggleTheme() {
+  applyTheme(document.documentElement.dataset.theme === 'light' ? 'dark' : 'light');
+}
+
 function esc(s) {
   return String(s ?? '').replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 }
@@ -309,6 +331,7 @@ function openLogDialog(p) {
 
 // —— 事件绑定 ——
 function bindEvents() {
+  $('#btn-theme').addEventListener('click', toggleTheme);
   $('#btn-add').addEventListener('click', () => openEditDialog(null));
   $('#btn-add-empty').addEventListener('click', () => openEditDialog(null));
   $('#search').addEventListener('input', (e) => {
@@ -335,6 +358,7 @@ function bindEvents() {
 }
 
 async function init() {
+  syncThemeButton();
   try {
     const h = await API.health();
     $('#ver').textContent = `v${h.version}`;
