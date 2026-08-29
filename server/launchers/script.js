@@ -1,10 +1,16 @@
 'use strict';
+const fs = require('fs');
 const path = require('path');
-const { spawn } = require('child_process');const config = require('../config');
+const { spawn } = require('child_process');
+const config = require('../config');
 const procman = require('../procman');
 const probe = require('../probe');
 const { sleep } = require('../util');
 const { openUrls } = require('./base');
+
+// 停止目标若是工作台自身进程，不能在请求处理中直接自杀：
+// 先响应结果，再延迟退出（自举管理："AI 工作台"卡片就是本服务）
+const SELF_PID = process.pid;
 
 // script 启动器：bat/cmd 脚本或任意命令行。
 // 现实约束：bat 内常用 `start` 拉起孙进程，脚本退出后进程树断裂、无法直接跟踪，
@@ -85,9 +91,14 @@ async function start(project) {
 
 async function stop(project) {
   const killed = new Set();
+  let selfKill = false;
   const attempt = async (pid) => {
     if (!pid || killed.has(pid)) return;
     killed.add(pid);
+    if (pid === SELF_PID) {
+      selfKill = true; // 工作台自身：等响应发出后再退出
+      return;
+    }
     await probe.killTree(pid);
   };
 
@@ -111,6 +122,11 @@ async function stop(project) {
   procman.clearStartRequested(project.id);
   procman.setMarked(project.id, 'stopped');
 
+  if (selfKill) {
+    // 给 HTTP 响应留出发送时间，然后退出自身
+    setTimeout(() => process.exit(0), 600);
+    return { ok: true, selfKill: true, message: '停止请求已受理，工作台将在 1 秒内退出' };
+  }
   if (killed.size > 0) {
     return { ok: true, message: `已结束 ${killed.size} 个进程` };
   }
@@ -118,7 +134,29 @@ async function stop(project) {
 }
 
 async function restart(project) {
-  await stop(project);
+  const r = await stop(project);
+  if (r.selfKill) {
+    // 自举重启：分离的引导进程等旧实例退出后，运行幂等的启动脚本拉起新实例
+    const bat = project.path ? path.win32.normalize(project.path.trim()) : '';
+    if (bat && /\.(bat|cmd)$/i.test(bat) && fs.existsSync(bat)) {
+      // 引导进程不落盘（cmd 脚本文件会被 GBK 代码页误读中文路径），参数数组经
+      // CreateProcessW 以 UTF-16 传递，天然 Unicode 安全；ping 充当延时
+      // （timeout 在 stdin 被重定向时会立即报错退出）
+      const helper = spawn(
+        'cmd.exe',
+        ['/d', '/c', 'ping', '-n', '3', '127.0.0.1', '>nul', '&', 'start', '', bat],
+        {
+          cwd: path.dirname(bat),
+          detached: true,
+          windowsHide: true,
+          stdio: 'ignore',
+        }
+      );
+      helper.unref();
+      return { ok: true, message: '工作台将在 2 秒后自动重启，页面会短暂断开后恢复' };
+    }
+    return r;
+  }
   // 等端口释放再启动，避免新实例绑定失败
   for (let i = 0; i < 20; i++) {
     const ports = project.ports || [];

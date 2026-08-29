@@ -1,4 +1,5 @@
 'use strict';
+const fs = require('fs');
 const path = require('path');
 const express = require('express');
 const config = require('./config');
@@ -7,6 +8,7 @@ const launchers = require('./launchers');
 const { router: projectsRouter } = require('./routes/projects');
 const { router: actionsRouter } = require('./routes/actions');
 const SCHEMA = require('./schema');
+const { now } = require('./util');
 const pkg = require('../package.json');
 
 const app = express();
@@ -52,6 +54,30 @@ app.use((err, req, res, next) => {
 });
 
 store.init();
+
+// 自举：把工作台自身注册成一张卡片（幂等，克隆本仓库即得）
+function registerSelf() {
+  const selfBat = path.join(config.root, 'scripts', '启动工作台.bat');
+  if (!fs.existsSync(selfBat) || store.get('ai-workbench')) return;
+  const host = config.host === '0.0.0.0' ? '127.0.0.1' : config.host;
+  store.add({
+    id: 'ai-workbench',
+    name: 'AI 工作台',
+    type: 'script',
+    description: '工作台自身 —— 你正在看的这个页面的后台服务',
+    path: selfBat,
+    ports: [config.port],
+    urls: [`http://${host}:${config.port}`],
+    dependencies: ['Node.js'],
+    tags: ['工作台'],
+    notes: '启动脚本是幂等的：已在运行则只打开浏览器。「停止」会让工作台自行退出（需再次运行脚本启动）；「重启」会自动拉起新实例。',
+    options: {},
+    createdAt: now(),
+    updatedAt: now(),
+  });
+  console.log('[ai-workbench] 已将工作台自身注册为项目卡片');
+}
+registerSelf();
 
 const server = app.listen(config.port, config.host, () => {
   console.log(`[ai-workbench] 已启动: http://${config.host}:${config.port}`);

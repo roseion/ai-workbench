@@ -15,6 +15,7 @@ An open-source **unified manager for local AI services**: manage all the AI serv
   - `docker` — Docker Compose (start / stop / restart / update = `pull` + `up -d`)
   - `static` — plain static pages, one-click open
 - 🤖 **AI-agent friendly**: REST API with a self-describing schema — another AI can register a freshly built project with a single HTTP call
+- 🔁 **Self-managing**: the workbench registers itself as a card too — "stop" exits gracefully, and "restart" boots a fresh instance via a detached helper (the page reconnects after a brief blip)
 - 🧩 **Extensible**: a new launcher type = one file + one registration line; frontend buttons render from capability declarations
 - 📋 **Logs**: per-project output viewer (in-memory ring buffer + `data/logs/` on disk)
 - 🌗 **Light / dark theme**: one click in the header; follows the system preference by default and remembers your manual choice
