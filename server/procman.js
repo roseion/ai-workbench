@@ -11,12 +11,14 @@ const { isPidAlive } = require('./probe');
 
 const buffers = new Map(); // id -> [{ts, stream, text}]
 const logStreams = new Map(); // id -> fs.WriteStream
-const runtimes = new Map(); // id -> {pids:Set, lastExit, startRequestedAt, markedStatus}
+// id -> {pids: Map<pid, marker>, lastExit, startRequestedAt, markedStatus}
+// marker = 启动时的命令行指纹：Windows PID 会被系统复用，停止前必须核对身份
+const runtimes = new Map();
 
 function rt(id) {
   let r = runtimes.get(id);
   if (!r) {
-    r = { pids: new Set(), lastExit: null, startRequestedAt: null, markedStatus: null };
+    r = { pids: new Map(), lastExit: null, startRequestedAt: null, markedStatus: null };
     runtimes.set(id, r);
   }
   return r;
@@ -54,10 +56,10 @@ function decodeChunk(dec, chunk) {
   return chunk.toString('utf8');
 }
 
-// 跟踪一个 spawn 出来的子进程，捕获其输出
-function attach(id, child, { encoding } = {}) {
+// 跟踪一个 spawn 出来的子进程，捕获其输出；marker 用于停止时核对 PID 身份
+function attach(id, child, { encoding, marker } = {}) {
   const r = rt(id);
-  r.pids.add(child.pid);
+  r.pids.set(child.pid, marker || null);
   r.lastExit = null;
   let dec = null;
   if (encoding) {
@@ -83,10 +85,10 @@ function appendExternal(id, text) {
 
 function getRuntime(id) {
   const r = rt(id);
-  const pids = [...r.pids].filter(isPidAlive);
-  r.pids = new Set(pids); // 顺带清掉已退出的
+  const pids = [...r.pids.entries()].filter(([pid]) => isPidAlive(pid));
+  r.pids = new Map(pids); // 顺带清掉已退出的
   return {
-    pids,
+    pids: pids.map(([pid, marker]) => ({ pid, marker })),
     lastExit: r.lastExit,
     startRequestedAt: r.startRequestedAt,
     markedStatus: r.markedStatus,
@@ -97,7 +99,6 @@ const setStartRequested = (id) => { rt(id).startRequestedAt = Date.now(); };
 const clearStartRequested = (id) => { rt(id).startRequestedAt = null; };
 const setMarked = (id, status) => { rt(id).markedStatus = status; };
 const clearTracking = (id) => { rt(id).pids.clear(); };
-
 // 删除项目时清理内存与日志句柄（日志文件保留在磁盘上）
 function purge(id) {
   const s = logStreams.get(id);

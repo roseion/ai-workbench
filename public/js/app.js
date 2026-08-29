@@ -203,6 +203,7 @@ function openEditDialog(p = null) {
   $('#f-cwd').value = p?.options?.cwd || '';
   $('#f-processMatch').value = p?.options?.processMatch || '';
   $('#f-encoding').value = p?.options?.encoding || '';
+  $('#f-console').checked = p?.options?.console === true;
   $('#f-composeFile').value = p?.options?.composeFile || '';
   $('#f-ports').value = (p?.ports || []).join(', ');
   $('#f-urls').value = (p?.urls || []).join('\n');
@@ -247,6 +248,7 @@ function collectForm() {
       const v = $(field).value.trim();
       if (v) payload.options[key] = v;
     }
+    if ($('#f-console').checked) payload.options.console = true;
   }
   if (type === 'docker') {
     const cf = $('#f-composeFile').value.trim();

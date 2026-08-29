@@ -264,6 +264,9 @@ main { padding: 24px 28px 60px; }
 }
 .field textarea { resize: vertical; font-family: var(--mono); font-size: 12px; }
 .field input:focus, .field select:focus, .field textarea:focus { border-color: var(--accent); }
+.checkbox-field .checkbox-line { display: flex; align-items: flex-start; gap: 8px; cursor: pointer; }
+.checkbox-field input[type='checkbox'] { width: 15px; height: 15px; margin-top: 2px; accent-color: var(--accent); flex: none; }
+.checkbox-field span:last-child { color: var(--muted); font-size: 12px; line-height: 1.5; }
 
 .dialog-foot { display: flex; justify-content: flex-end; gap: 10px; margin-top: 18px; }
 

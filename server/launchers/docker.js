@@ -29,7 +29,7 @@ async function getStatus(project) {
   }
   const key = `${project.id}|${project.path}|${(project.options || {}).composeFile || ''}`;
   if (psCache.key === key && Date.now() - psCache.at < 2000) {
-    return { ...psCache.value, runtimePids: runtime.pids };
+    return { ...psCache.value, runtimePids: runtime.pids.map((p) => p.pid) };
   }
 
   const r = await exe.run('docker', composeArgs(project, ['ps', '--services', '--status', 'running']), {
@@ -61,7 +61,7 @@ async function getStatus(project) {
     }
   }
   psCache = { key, at: Date.now(), value };
-  return { ...value, runtimePids: runtime.pids };
+  return { ...value, runtimePids: runtime.pids.map((p) => p.pid) };
 }
 
 async function compose(project, extra, timeoutMs) {

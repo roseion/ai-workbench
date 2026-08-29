@@ -43,6 +43,7 @@ POST /api/v1/projects?upsert=true  # 幂等：id 已存在则合并更新（只�
 | `options.processMatch` | 可选 | script: 停止兜底，按命令行关键字匹配（如 `"daemon.mjs"`） |
 | `options.composeFile` | 可选 | docker: compose 文件名，默认 `docker-compose.yml` |
 | `options.encoding` | 可选 | script: 输出编码，如 `"gbk"` |
+| `options.console` | 可选 | script: `true` 时在新控制台窗口运行（等同双击；兼容输出被重定向会解析错位的 bat），此时工作台不捕获日志 |
 | `id` | 可选 | 唯一标识（`[a-zA-Z0-9._-]`），省略则按 name 自动生成 |
 
 **类型前置条件**：`script` 需要 `path` 或 `options.command`；`docker` 需要 `path`（compose 目录）；`static` 需要 `path` 或至少一个 `urls`。

@@ -84,6 +84,12 @@
         <span>日志编码（可选）</span>
         <input id="f-encoding" type="text" placeholder="默认 utf8，可填 gbk">
       </label>
+      <label class="field checkbox-field" data-for="script">
+        <span class="checkbox-line">
+          <input id="f-console" type="checkbox">
+          <span>在新控制台窗口运行（等同双击；兼容"输出被重定向就解析错位"的特殊 bat，此时工作台不捕获其输出）</span>
+        </span>
+      </label>
       <label class="field" data-for="docker">
         <span>Compose 文件名（可选）</span>
         <input id="f-composeFile" type="text" placeholder="默认 docker-compose.yml">

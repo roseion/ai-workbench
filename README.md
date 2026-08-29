@@ -45,6 +45,7 @@ npm start
 | `options.composeFile` | — | 默认 `docker-compose.yml` | — |
 | `options.processMatch` | 按命令行关键字匹配进程（停止兜底，如 `daemon.mjs`） | — | — |
 | `options.command` | 自定义启动命令（优先于 path） | — | — |
+| `options.console` | `true` 时在新控制台窗口运行（等同双击；兼容"输出被重定向就解析错位"的特殊 bat，此时不捕获日志） | — | — |
 | `options.cwd` / `options.env` / `options.encoding` | 工作目录 / 环境变量 / 输出编码（如 `gbk`） | — | — |
 
 **停止策略（script 型）**：很多 bat 用 `start` 拉起服务后自己退出，进程树断裂无法直接跟踪。工作台按三层顺序停止：① 本次启动跟踪的 PID → `taskkill /T /F`；② 对 `ports` 里监听中的端口反查 PID 后结束；③ `options.processMatch` 按命令行匹配。三层都未命中时如实提示"进程未跟踪"，绝不误杀。
@@ -125,6 +126,7 @@ npm test
 - 工作台启动**之前**由外部手动拉起的"无端口"进程（如 GUI 程序）无法被停止或识别状态（显示"未知"，可在卡片上手动标记，工作台自己启动的实例不受影响）
 - bat 内部 `start` 拉起的子服务的 stdout 在各自窗口/日志文件里（如 SillyTavern 的 `startup.log`），工作台日志只捕获主脚本输出
 - `options.processMatch` 按命令行匹配进程，关键字要足够独特，避免误杀同名进程
+- **个别 bat 与"输出重定向"不兼容**：cmd 在重定向输出（管道/文件）时解析含 `chcp` + 中文注释的 bat 可能错位（双击运行正常，经工作台启动报 9009）。给这类项目设置 `options.console: true`（编辑弹窗勾选"在新控制台窗口运行"），等同双击效果；代价是工作台不捕获其日志
 
 ## License
 

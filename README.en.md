@@ -47,6 +47,7 @@ Open **http://127.0.0.1:8787**. On first run the seed data in `data/projects.exa
 | `options.composeFile` | — | default `docker-compose.yml` | — |
 | `options.processMatch` | kill-fallback by command-line keyword (e.g. `daemon.mjs`) | — | — |
 | `options.command` | custom start command (overrides path) | — | — |
+| `options.console` | `true` runs in a new console window (double-click equivalent; for bats that misparse when output is redirected — log capture is disabled then) | — | — |
 | `options.cwd` / `env` / `encoding` | workdir / env vars / output encoding (e.g. `gbk`) | — | — |
 
 **Stop strategy (script type):** bats commonly `start` their services and exit, breaking the process tree. The workbench stops in three layers: ① tracked PIDs from this launch → `taskkill /T /F`; ② PIDs found listening on the declared `ports`; ③ `options.processMatch` command-line matching. If nothing matches it says so honestly instead of killing blindly.
@@ -106,6 +107,7 @@ npm test
 - Processes started *outside* the workbench with no ports (GUI apps) cannot be identified or stopped — they show as "unknown" and can be marked manually; instances started by the workbench are tracked normally
 - stdout of services that a bat detaches via `start` stays in their own windows/log files; the workbench log only captures the main script's output
 - `options.processMatch` matches processes by command line — use keywords unique enough to avoid killing the wrong process
+- **Some bats are incompatible with output redirection**: cmd may misparse a bat containing `chcp` + Chinese comments when its output is redirected (pipe/file) — double-clicking works, but starting via the workbench fails with error 9009. Set `options.console: true` for such projects (runs in a new console window, double-click equivalent; log capture is disabled)
 
 ## License
 

@@ -5,7 +5,7 @@ const launchers = require('./launchers');
 // path/command/cwd 等字段最终会进入 cmd 命令行，禁止引号与换行，防止参数注入。
 
 const TOP_FIELDS = ['id', 'name', 'type', 'description', 'path', 'ports', 'urls', 'dependencies', 'tags', 'notes', 'options'];
-const OPTION_KEYS = ['command', 'cwd', 'env', 'processMatch', 'composeFile', 'encoding'];
+const OPTION_KEYS = ['command', 'cwd', 'env', 'processMatch', 'composeFile', 'encoding', 'console'];
 const LIMITS = {
   name: 100, description: 500, notes: 5000, path: 500,
   command: 1000, cwd: 500, processMatch: 200, composeFile: 200, encoding: 50,
@@ -132,6 +132,15 @@ function validateProjectInput(body, { partial = false } = {}) {
               envOut[k] = String(v);
             }
             if (envOk) opt.env = envOut;
+          } else if (key === 'console') {
+            // 布尔选项：在新控制台窗口运行（兼容重定向输出会解析错位的 bat）
+            if (typeof raw[key] === 'boolean') {
+              if (raw[key]) opt.console = true;
+            } else {
+              errs.push('options.console 必须是布尔值');
+              ok = false;
+              break;
+            }
           } else {
             const v = str(raw[key]) || '';
             if (v.length > LIMITS[key]) { errs.push(`options.${key} 最长 ${LIMITS[key]} 字符`); ok = false; break; }

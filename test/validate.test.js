@@ -47,3 +47,17 @@ test('未知 options 字段被拒绝', () => {
   );
   assert.ok(v.errors.some((e) => e.includes('hacker')));
 });
+
+test('options.console 布尔校验', () => {
+  const ok = validateProjectInput(
+    { name: 'X', type: 'script', path: 'C:/a.bat', options: { console: true } },
+    { partial: false }
+  );
+  assert.ok(ok.ok, JSON.stringify(ok.errors));
+  assert.strictEqual(ok.value.options.console, true);
+  const bad = validateProjectInput(
+    { name: 'X', type: 'script', path: 'C:/a.bat', options: { console: 'yes' } },
+    { partial: false }
+  );
+  assert.ok(bad.errors.some((e) => e.includes('console')));
+});

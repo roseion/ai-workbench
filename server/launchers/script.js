@@ -13,15 +13,20 @@ const { openUrls } = require('./base');
 const capabilities = { canStart: true, canStop: true, canRestart: true, canOpen: true };
 
 // 启动方案：bat/cmd 用 args 数组（Node 不会转义路径引号，cmd /d /c 的引号规则可正确处理空格）；
-// 任意命令串用 shell:true（Node 原样传给 cmd，避免双重转义）
+// 任意命令串用 shell:true（Node 原样传给 cmd，避免双重转义）。
+// console 模式：经 `start` 在新控制台窗口运行，等同双击——兼容"输出被重定向就解析错位"的
+// 特殊 bat（如 chcp 65001 + 中文 REM 的组合），代价是工作台无法捕获其输出。
 function spawnPlan(project) {
   const opt = project.options || {};
-  if (opt.command) return { kind: 'shell', command: opt.command };
+  const consoleMode = opt.console === true || opt.console === 'true';
+  if (opt.command) return { kind: consoleMode ? 'shell-console' : 'shell', command: opt.command };
   const p = project.path;
   if (!p) return null;
   const normalized = path.win32.normalize(p.trim());
-  if (/\.(bat|cmd)$/i.test(normalized)) return { kind: 'bat', file: normalized };
-  return { kind: 'shell', command: normalized };
+  if (/\.(bat|cmd)$/i.test(normalized)) {
+    return consoleMode ? { kind: 'bat-console', file: normalized } : { kind: 'bat', file: normalized };
+  }
+  return consoleMode ? { kind: 'shell-console', command: normalized } : { kind: 'shell', command: normalized };
 }
 
 async function start(project) {
@@ -33,6 +38,24 @@ async function start(project) {
 
   procman.setStartRequested(project.id);
   procman.setMarked(project.id, null);
+
+  if (plan.kind === 'bat-console' || plan.kind === 'shell-console') {
+    // 新控制台窗口运行：start 的第一个引号参数是窗口标题（留空用默认）
+    const inner = plan.kind === 'bat-console' ? [plan.file] : ['cmd', '/c', plan.command];
+    const child = spawn('cmd.exe', ['/d', '/c', 'start', '', ...inner], {
+      cwd,
+      env,
+      windowsHide: true,
+      stdio: 'ignore',
+    });
+    procman.attach(project.id, child, { encoding: opt.encoding, marker: plan.file || plan.command });
+    await sleep(300);
+    if (child.exitCode !== null && child.exitCode !== 0) {
+      procman.clearStartRequested(project.id);
+      return { ok: false, message: `启动失败（code=${child.exitCode}），请检查 path 是否正确` };
+    }
+    return { ok: true, message: '已在新控制台窗口启动（等同双击运行，工作台不捕获其输出）' };
+  }
 
   const child =
     plan.kind === 'bat'
@@ -49,7 +72,7 @@ async function start(project) {
           shell: true,
           stdio: ['ignore', 'pipe', 'pipe'],
         });
-  procman.attach(project.id, child, { encoding: opt.encoding });
+  procman.attach(project.id, child, { encoding: opt.encoding, marker: plan.file || plan.command });
 
   // 给 spawn 一点时间，尽早暴露"可执行文件不存在"之类的问题
   await sleep(300);
@@ -68,8 +91,12 @@ async function stop(project) {
     await probe.killTree(pid);
   };
 
+  // 跟踪进程：先核对命令行指纹再杀——Windows 会复用 PID，指纹对不上的一律放过
   const runtime = procman.getRuntime(project.id);
-  for (const pid of runtime.pids) await attempt(pid);
+  for (const { pid, marker } of runtime.pids) {
+    if (!(await probe.pidMatchesCommandline(pid, marker))) continue;
+    await attempt(pid);
+  }
 
   for (const port of project.ports || []) {
     for (const pid of await probe.findPidsByPort(port)) await attempt(pid);

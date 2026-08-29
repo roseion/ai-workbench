@@ -67,6 +67,19 @@ async function killTree(pid) {
   return { ok: !r.err, message: (r.stdout || r.stderr || '').trim() };
 }
 
+// 核对 PID 身份：Windows 会复用 PID，结束跟踪进程前先确认命令行指纹匹配，
+// 避免把复用了旧 PID 的无辜进程（及其整棵进程树）误杀
+async function pidMatchesCommandline(pid, substr) {
+  if (!pid || !substr) return true; // 无指纹时保持旧行为
+  const s = String(substr).replace(/'/g, "''");
+  const script =
+    `$ErrorActionPreference='SilentlyContinue'; ` +
+    `$p = Get-CimInstance Win32_Process -Filter "ProcessId=${Number(pid)}" | Select-Object -First 1; ` +
+    `if ($p -and $p.CommandLine -like '*${s}*') { 'MATCH' }`;
+  const r = await run('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', script], { timeoutMs: 15000 });
+  return r.stdout.includes('MATCH');
+}
+
 // 进程是否存活；EPERM 视为存活（权限不足但进程存在）
 function isPidAlive(pid) {
   if (!pid) return false;
@@ -78,4 +91,4 @@ function isPidAlive(pid) {
   }
 }
 
-module.exports = { probePort, probePorts, findPidsByPort, findPidsByCommandline, killTree, isPidAlive };
+module.exports = { probePort, probePorts, findPidsByPort, findPidsByCommandline, killTree, pidMatchesCommandline, isPidAlive };

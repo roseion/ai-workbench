@@ -48,6 +48,7 @@ const SCHEMA = {
         processMatch: { type: 'string', maxLength: 200, description: 'script: 停止时按命令行关键字匹配进程（如 daemon.mjs）' },
         composeFile: { type: 'string', maxLength: 200, description: 'docker: compose 文件名（默认 docker-compose.yml）' },
         encoding: { type: 'string', maxLength: 50, description: 'script: 输出日志编码（如 gbk），默认 utf8' },
+        console: { type: 'boolean', description: 'script: 在新控制台窗口运行（等同双击；兼容输出被重定向会解析错位的 bat），此时工作台不捕获日志' },
       },
     },
   },
