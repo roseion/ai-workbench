@@ -1,0 +1,8 @@
+node_modules/
+data/projects.json
+data/projects.json.tmp
+data/logs/
+*.log
+.DS_Store
+Thumbs.db
+.zcode/

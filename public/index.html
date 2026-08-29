@@ -1,0 +1,141 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AI 工作台</title>
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'%3E%3Ctext y='.9em' font-size='90'%3E%F0%9F%9A%80%3C/text%3E%3C/svg%3E">
+<link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+<header class="topbar">
+  <div class="brand">
+    <span class="logo">🚀</span>
+    <div>
+      <h1>AI 工作台</h1>
+      <span class="sub">本地 AI 服务 · 统一管理</span>
+    </div>
+  </div>
+  <div class="topbar-actions">
+    <input id="search" type="search" placeholder="搜索 名称 / 标签 / 描述…" autocomplete="off">
+    <button id="btn-add" class="btn primary" type="button">＋ 添加项目</button>
+  </div>
+</header>
+
+<main>
+  <div id="grid" class="grid"></div>
+  <div id="empty" class="empty" hidden>
+    <p class="empty-icon">📭</p>
+    <p>还没有项目，或没有匹配的搜索结果</p>
+    <button class="btn primary" type="button" id="btn-add-empty">＋ 添加第一个项目</button>
+  </div>
+</main>
+
+<footer class="foot">
+  <span>AI 工作台 <span id="ver"></span></span>
+  <span class="sep">·</span>
+  <a href="/docs/API.md" target="_blank">AI 同事接入指南</a>
+  <span class="sep">·</span>
+  <a href="/api/v1/schema/project" target="_blank">项目 Schema</a>
+  <span class="sep">·</span>
+  <span id="poll-state" class="muted">5s 自动刷新</span>
+</footer>
+
+<!-- 添加 / 编辑项目 -->
+<dialog id="edit-dialog" class="dialog">
+  <form id="edit-form" method="dialog" novalidate>
+    <h2 id="edit-title">添加项目</h2>
+    <div class="form-grid">
+      <label class="field">
+        <span>项目名 <em>*</em></span>
+        <input id="f-name" type="text" maxlength="100" required placeholder="例如：My RAG 服务">
+      </label>
+      <label class="field">
+        <span>类型 <em>*</em></span>
+        <select id="f-type">
+          <option value="script">script —— 脚本 / 命令启动</option>
+          <option value="docker">docker —— Docker Compose</option>
+          <option value="static">static —— 静态页面</option>
+        </select>
+      </label>
+      <label class="field span2">
+        <span>简介</span>
+        <input id="f-desc" type="text" maxlength="500" placeholder="一句话说明这个项目是什么">
+      </label>
+
+      <label class="field span2" data-for="script,docker,static">
+        <span id="f-path-label">脚本 / 程序路径</span>
+        <input id="f-path" type="text" spellcheck="false" placeholder="">
+      </label>
+
+      <label class="field" data-for="script">
+        <span>自定义命令（可选，优先于路径）</span>
+        <input id="f-command" type="text" spellcheck="false" placeholder="例如：node server.js">
+      </label>
+      <label class="field" data-for="script">
+        <span>工作目录（可选）</span>
+        <input id="f-cwd" type="text" spellcheck="false" placeholder="默认取脚本所在目录">
+      </label>
+      <label class="field" data-for="script">
+        <span>停止匹配关键字（可选）</span>
+        <input id="f-processMatch" type="text" spellcheck="false" placeholder="按命令行匹配进程，如 daemon.mjs">
+      </label>
+      <label class="field" data-for="script">
+        <span>日志编码（可选）</span>
+        <input id="f-encoding" type="text" placeholder="默认 utf8，可填 gbk">
+      </label>
+      <label class="field" data-for="docker">
+        <span>Compose 文件名（可选）</span>
+        <input id="f-composeFile" type="text" placeholder="默认 docker-compose.yml">
+      </label>
+
+      <label class="field" data-for="script,docker">
+        <span>端口（逗号分隔，用于状态探测与停止定位）</span>
+        <input id="f-ports" type="text" placeholder="例如：8000, 8090">
+      </label>
+      <label class="field span2" data-for="script,docker,static">
+        <span>打开地址（每行一个，第一个为「打开」按钮主地址）</span>
+        <textarea id="f-urls" rows="2" spellcheck="false" placeholder="http://127.0.0.1:8000"></textarea>
+      </label>
+      <label class="field" data-for="script,docker,static">
+        <span>依赖项（逗号分隔）</span>
+        <input id="f-deps" type="text" placeholder="例如：Ollama, Node.js">
+      </label>
+      <label class="field" data-for="script,docker,static">
+        <span>标签（逗号分隔）</span>
+        <input id="f-tags" type="text" placeholder="例如：写作, agent">
+      </label>
+      <label class="field span2" data-for="script,docker,static">
+        <span>备注</span>
+        <textarea id="f-notes" rows="3" placeholder="启动方式、注意事项……"></textarea>
+      </label>
+      <label class="field span2" id="f-id-field" hidden>
+        <span>项目 ID（可选，仅小写字母数字-_）</span>
+        <input id="f-id" type="text" spellcheck="false" placeholder="留空自动生成">
+      </label>
+    </div>
+    <div class="dialog-foot">
+      <button type="button" class="btn" id="btn-cancel">取消</button>
+      <button type="submit" class="btn primary" id="btn-save">保存</button>
+    </div>
+  </form>
+</dialog>
+
+<!-- 日志 -->
+<dialog id="log-dialog" class="dialog log-dialog">
+  <div class="log-head">
+    <h2 id="log-title">日志</h2>
+    <div>
+      <label class="muted"><input type="checkbox" id="log-follow" checked> 自动刷新</label>
+      <button type="button" class="btn" id="btn-log-close">关闭</button>
+    </div>
+  </div>
+  <pre id="log-pre" class="log-pre"></pre>
+</dialog>
+
+<div id="toast" class="toast" hidden></div>
+
+<script src="js/api.js"></script>
+<script src="js/app.js"></script>
+</body>
+</html>
