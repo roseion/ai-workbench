@@ -4,10 +4,10 @@ const launchers = require('./launchers');
 // 项目入参校验与归一化。
 // path/command/cwd 等字段最终会进入 cmd 命令行，禁止引号与换行，防止参数注入。
 
-const TOP_FIELDS = ['id', 'name', 'type', 'description', 'path', 'ports', 'urls', 'dependencies', 'tags', 'notes', 'options'];
+const TOP_FIELDS = ['id', 'name', 'nameNote', 'type', 'description', 'path', 'ports', 'urls', 'dependencies', 'tags', 'notes', 'options'];
 const OPTION_KEYS = ['command', 'cwd', 'env', 'processMatch', 'composeFile', 'encoding', 'console'];
 const LIMITS = {
-  name: 100, description: 500, notes: 5000, path: 500,
+  name: 100, nameNote: 200, description: 500, notes: 5000, path: 500,
   command: 1000, cwd: 500, processMatch: 200, composeFile: 200, encoding: 50,
 };
 
@@ -44,7 +44,7 @@ function validateProjectInput(body, { partial = false } = {}) {
     else out.id = id;
   }
 
-  const simpleStrings = ['description', 'notes'];
+  const simpleStrings = ['nameNote', 'description', 'notes'];
   for (const f of simpleStrings) {
     if (!partial && !has(f)) { out[f] = ''; continue; }
     if (!has(f)) continue;

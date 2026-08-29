@@ -15,6 +15,7 @@ const SCHEMA = {
       description: '唯一标识，省略则根据 name 自动生成；POST ?upsert=true 时按 id 覆盖更新',
     },
     name: { type: 'string', maxLength: 100, description: '项目名（必填）' },
+    nameNote: { type: 'string', maxLength: 200, description: '名字备注：显示在项目名下方的短备注（卡片上可就地编辑）' },
     type: {
       type: 'string',
       description: '启动器类型（必填）。可用值见 GET /api/v1/types，当前: script / docker / static，可通过插件扩展',

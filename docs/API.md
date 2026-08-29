@@ -30,6 +30,7 @@ POST /api/v1/projects?upsert=true  # 幂等：id 已存在则合并更新（只�
 | 字段 | 必填 | 说明 |
 |---|---|---|
 | `name` | ✅ | 项目名，≤100 字符 |
+| `nameNote` | 可选 | 名字备注：显示在项目名下方的短备注（≤200 字符，卡片上可就地编辑） |
 | `type` | ✅ | `script` / `docker` / `static`（以 `GET /api/v1/types` 为准） |
 | `path` | 类型相关 | script: bat/cmd/exe 路径；docker: compose 目录；static: HTML 路径。不能含引号/换行 |
 | `ports` | 可选 | 端口数组（1–65535），用于状态探测与停止定位 |

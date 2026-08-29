@@ -6,13 +6,14 @@ const { validateProjectInput } = require('../server/validate');
 test('完整合法的 script 项目通过并归一化', () => {
   const v = validateProjectInput(
     {
-      name: 'X', type: 'script', path: 'C:/a/b.bat',
+      name: 'X', nameNote: '名字备注', type: 'script', path: 'C:/a/b.bat',
       ports: [8000, '8090'], urls: ['http://127.0.0.1:8000'],
       tags: ['a', 'a'], options: { processMatch: 'x.js' },
     },
     { partial: false }
   );
   assert.ok(v.ok, JSON.stringify(v.errors));
+  assert.strictEqual(v.value.nameNote, '名字备注');
   assert.deepStrictEqual(v.value.ports, [8000, 8090]);
   assert.deepStrictEqual(v.value.tags, ['a']);
 });

@@ -188,6 +188,24 @@ main { padding: 24px 28px 60px; }
 @keyframes pulse { 50% { opacity: 0.4; } }
 
 .name { margin: 0; font-size: 16px; flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+
+/* 名字备注：就地编辑文本框，平时低调，悬停/聚焦时显形 */
+.name-note {
+  margin: -6px 0 0;
+  padding: 4px 9px;
+  border: 1px solid transparent;
+  border-radius: 8px;
+  background: transparent;
+  color: var(--muted);
+  font-size: 12px;
+  font-family: inherit;
+  width: 100%;
+  outline: none;
+  transition: border-color 0.15s, background 0.15s;
+}
+.name-note:hover { border-color: var(--border); background: var(--bg-soft); }
+.name-note:focus { border-color: var(--accent); background: var(--bg-soft); color: var(--text); }
+.name-note::placeholder { color: var(--muted); opacity: 0.5; }
 .type-badge {
   font-size: 11px;
   color: var(--muted);

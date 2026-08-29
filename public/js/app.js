@@ -1,6 +1,6 @@
 'use strict';
 
-const state = { projects: [], search: '' };
+const state = { projects: [], search: '', noteEditing: false };
 const $ = (sel, el = document) => el.querySelector(sel);
 const $$ = (sel, el = document) => [...el.querySelectorAll(sel)];
 
@@ -55,7 +55,8 @@ async function refresh() {
     const data = await API.list();
     state.projects = data.projects;
     $('#poll-state').textContent = `5s 自动刷新 · ${new Date().toLocaleTimeString('zh-CN', { hour12: false })}`;
-    render();
+    // 正在编辑名字备注时不重绘，避免打断输入、丢失焦点
+    if (!state.noteEditing) render();
   } catch (e) {
     $('#poll-state').textContent = '刷新失败，重试中…';
   }
@@ -126,6 +127,9 @@ function cardHTML(p) {
     <span class="type-badge">${esc(TYPE_LABEL[p.type] || p.type)}</span>
     <span class="status-label ${st.cls}">${st.label}</span>
   </div>
+  <input class="name-note" type="text" maxlength="200" spellcheck="false"
+         placeholder="名字备注…（回车保存）" value="${esc(p.nameNote || '')}"
+         data-orig="${esc(p.nameNote || '')}" data-namenote="${esc(p.id)}">
   ${p.description ? `<p class="desc">${esc(p.description)}</p>` : ''}
   ${p.path ? `<div class="path" data-copy="${esc(p.path)}" title="点击复制路径">📁 <code>${esc(p.path)}</code></div>` : ''}
   ${portChips(p)}
@@ -192,6 +196,40 @@ async function onCardAction(id, act) {
     default:
       doAction(id, act);
   }
+}
+
+// —— 名字备注：就地编辑。保存路径有三条（互为备份，兼容不发焦点事件的环境）：
+// 输入停顿 800ms 自动保存 / 回车立即保存 / 失焦保存；Esc 还原到上次保存值 ——
+let nameNoteTimer = null;
+
+async function commitNameNote(input) {
+  clearTimeout(nameNoteTimer);
+  const id = input.closest('.card')?.dataset.id;
+  if (!id) return;
+  const val = input.value.trim();
+  const orig = input.dataset.orig ?? '';
+  if (val !== orig) {
+    try {
+      await API.patch(id, { nameNote: val });
+      const p = find(id);
+      if (p) p.nameNote = val;
+      input.dataset.orig = val;
+      toast('名字备注已保存');
+    } catch (e) {
+      toast(e.message, true);
+    }
+  }
+  // 仍聚焦说明用户可能继续输入：保持编辑态（暂停轮询重绘），等失焦再恢复
+  if (document.activeElement !== input) {
+    state.noteEditing = false;
+    refresh();
+  }
+}
+
+function onNameNoteInput(e) {
+  state.noteEditing = true;
+  clearTimeout(nameNoteTimer);
+  nameNoteTimer = setTimeout(() => commitNameNote(e.target), 800);
 }
 
 // —— 复制路径 ——
@@ -337,6 +375,27 @@ function bindEvents() {
   $('#search').addEventListener('input', (e) => {
     state.search = e.target.value;
     render();
+  });
+
+  $('#grid').addEventListener('focusin', (e) => {
+    if (!e.target.matches('.name-note')) return;
+    state.noteEditing = true;
+  });
+  $('#grid').addEventListener('focusout', (e) => {
+    if (e.target.matches('.name-note')) commitNameNote(e.target);
+  });
+  $('#grid').addEventListener('input', onNameNoteInput);
+  $('#grid').addEventListener('keydown', (e) => {
+    if (!e.target.matches('.name-note')) return;
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      commitNameNote(e.target);
+      e.target.blur();
+    } else if (e.key === 'Escape') {
+      e.target.value = e.target.dataset.orig ?? '';
+      commitNameNote(e.target);
+      e.target.blur();
+    }
   });
 
   $('#grid').addEventListener('click', (e) => {

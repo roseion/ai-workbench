@@ -34,9 +34,14 @@ app.use('/api/v1/projects', actionsRouter);
 
 app.use('/api', (req, res) => res.status(404).json({ error: { message: '接口不存在，可用接口见 GET /api/v1/schema/project 与 docs/API.md' } }));
 
-// 静态前端 + 开源文档（docs/API.md 等）
+// 静态前端 + 开源文档（docs/API.md 等）。no-cache = 使用前必须协商缓存，
+// 保证前端文件更新后浏览器立刻拿到新版（命中则 304，不浪费带宽）
 app.use('/docs', express.static(path.join(config.root, 'docs')));
-app.use(express.static(config.publicDir));
+app.use(
+  express.static(config.publicDir, {
+    setHeaders: (res) => res.setHeader('Cache-Control', 'no-cache'),
+  })
+);
 
 // 统一错误处理
 // eslint-disable-next-line no-unused-vars
