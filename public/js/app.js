@@ -1,6 +1,6 @@
 'use strict';
 
-const state = { projects: [], groups: [], search: '', noteEditing: false, groupEditing: false, dragging: false };
+const state = { projects: [], groups: [], search: '', noteEditing: false, groupEditing: false, dragging: false, paletteOpen: false };
 const $ = (sel, el = document) => el.querySelector(sel);
 const $$ = (sel, el = document) => [...el.querySelectorAll(sel)];
 
@@ -56,8 +56,8 @@ async function refresh() {
     state.projects = pData.projects;
     state.groups = gData.groups;
     $('#poll-state').textContent = `5s 自动刷新 · ${new Date().toLocaleTimeString('zh-CN', { hour12: false })}`;
-    // 正在编辑名字备注/分组名或拖拽中时不重绘，避免打断操作、丢失焦点
-    if (!state.noteEditing && !state.groupEditing && !state.dragging) render();
+    // 正在编辑名字备注/分组名、拖拽中或调色盘展开时不重绘，避免打断操作
+    if (!state.noteEditing && !state.groupEditing && !state.dragging && !state.paletteOpen) render();
   } catch (e) {
     $('#poll-state').textContent = '刷新失败，重试中…';
   }
@@ -96,6 +96,11 @@ function chipList(items, cls) {
   return `<div class="chips">${items.map((x) => `<span class="chip ${cls}">${esc(x)}</span>`).join('')}</div>`;
 }
 
+const PALETTE = [
+  ['red', '红'], ['orange', '橙'], ['yellow', '黄'], ['green', '绿'],
+  ['cyan', '青'], ['blue', '蓝'], ['purple', '紫'],
+];
+
 function cardHTML(p) {
   const st = STATUS_META[p.status.status] || STATUS_META.unknown;
   const cap = p.capabilities || {};
@@ -107,6 +112,13 @@ function cardHTML(p) {
   if (cap.canUpdate) buttons.push(['update', '⬇ 更新', '']);
   if (cap.canOpen) buttons.push(['open', '↗ 打开', 'accent']);
   buttons.push(['logs', '☰ 日志', '']);
+  const paletteHTML = `<span class="palette-wrap">
+    <button class="btn sm ghost" data-act="palette" type="button" title="背景颜色">🎨</button>
+    <span class="palette-pop" hidden>
+      <button class="swatch sw-none${p.color ? '' : ' active'}" data-swatch="" type="button" title="默认"></button>
+      ${PALETTE.map(([c, t]) => `<button class="swatch sw-${c}${p.color === c ? ' active' : ''}" data-swatch="${c}" type="button" title="${t}"></button>`).join('')}
+    </span>
+  </span>`;
   buttons.push(['edit', '✎ 编辑', 'ghost']);
   buttons.push(['delete', '🗑', 'ghost danger']);
 
@@ -121,7 +133,7 @@ function cardHTML(p) {
       : '';
 
   return `
-<article class="card${p.status.status === 'running' ? ' running' : ''}" draggable="true" data-id="${esc(p.id)}">
+<article class="card${p.status.status === 'running' ? ' running' : ''}${p.color ? ' c-' + p.color : ''}" draggable="true" data-id="${esc(p.id)}">
   <div class="card-head">
     <span class="dot ${st.cls}" title="${st.label}"></span>
     <h3 class="name" title="${esc(p.id)}">${esc(p.name)}</h3>
@@ -140,6 +152,7 @@ function cardHTML(p) {
   ${markRow}
   ${lastExit}
   <div class="card-actions">
+    ${paletteHTML}
     ${buttons.map(([act, label, cls]) => `<button class="btn sm ${cls}" data-act="${act}" type="button">${label}</button>`).join('')}
   </div>
 </article>`;
@@ -659,15 +672,50 @@ function bindEvents() {
     clearDrop();
   });
 
-  $('#grid').addEventListener('click', (e) => {
+  $('#grid').addEventListener('click', async (e) => {
     const pathEl = e.target.closest('.path');
     if (pathEl && pathEl.dataset.copy) return copyText(pathEl.dataset.copy);
+    // 背景调色盘：展开/收起
+    const palBtn = e.target.closest('button[data-act="palette"]');
+    if (palBtn) {
+      const pop = palBtn.closest('.palette-wrap').querySelector('.palette-pop');
+      const wasHidden = pop.hidden;
+      $$('.palette-pop').forEach((p) => (p.hidden = true));
+      pop.hidden = !wasHidden;
+      state.paletteOpen = !pop.hidden;
+      return;
+    }
+    // 选择颜色：立即持久化
+    const swatch = e.target.closest('.swatch');
+    if (swatch) {
+      const id = swatch.closest('.card')?.dataset.id;
+      if (!id) return;
+      try {
+        await API.patch(id, { color: swatch.dataset.swatch });
+        const p = find(id);
+        if (p) p.color = swatch.dataset.swatch;
+        $$('.palette-pop').forEach((x) => (x.hidden = true));
+        state.paletteOpen = false;
+      } catch (err) {
+        toast(err.message, true);
+      }
+      refresh();
+      return;
+    }
     const gbtn = e.target.closest('button[data-gact]');
     if (gbtn && gbtn.dataset.gact === 'dissolve') return onDissolveGroup(gbtn.dataset.group);
     const btn = e.target.closest('button[data-act]');
     if (!btn) return;
     const id = btn.closest('.card')?.dataset.id;
     if (id) onCardAction(id, btn.dataset.act);
+  });
+
+  // 点击调色盘以外区域时收起
+  document.addEventListener('click', (e) => {
+    if (state.paletteOpen && !e.target.closest('.palette-wrap')) {
+      $$('.palette-pop').forEach((p) => (p.hidden = true));
+      state.paletteOpen = false;
+    }
   });
 
   $('#edit-form').addEventListener('submit', onSave);

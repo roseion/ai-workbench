@@ -29,6 +29,11 @@ const SCHEMA = {
       readOnly: true,
       description: '卡片排序序号（服务端管理，输入时忽略）：前端按「运行中优先，其次 order 升序」排列；拖拽排序经 POST /api/v1/projects/reorder',
     },
+    color: {
+      type: 'string',
+      enum: ['', 'red', 'orange', 'yellow', 'green', 'cyan', 'blue', 'purple'],
+      description: '卡片背景色，七选一（红/橙/黄/绿/青/蓝/紫），留空 = 默认色。卡片上的 🎨 调色盘可即时切换',
+    },
     description: { type: 'string', maxLength: 500, description: '一句话简介' },
     path: {
       type: 'string',

@@ -8,7 +8,7 @@ An open-source **unified manager for local AI services**: manage all the AI serv
 
 ## Features
 
-- 🗂 **Card-based management**: name, description, path (click to copy), per-port status probing, dependencies, tags, and notes
+- 🗂 **Card-based management**: name, description, path (click to copy), per-port status probing, dependencies, tags, and notes — pick from 7 card colors; running cards get a bright glowing border and pin to the top
 - 📚 **Groups**: create groups and drag projects in; drag cards within a group to reorder; rename / drag-reorder groups, or dissolve them (projects fall back to ungrouped)
 - ▶️ **Lifecycle control**: start / stop / restart / open in browser; live status refresh (5s polling)
 - 🐳 **Three launcher types**:

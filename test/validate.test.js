@@ -68,3 +68,13 @@ test('groupId 缺省为未分组', () => {
   assert.ok(v.ok, JSON.stringify(v.errors));
   assert.strictEqual(v.value.groupId, null);
 });
+
+test('color 仅接受七色色板或留空', () => {
+  const ok = validateProjectInput({ name: 'X', type: 'static', path: 'C:/a.html', color: 'cyan' }, { partial: false });
+  assert.ok(ok.ok, JSON.stringify(ok.errors));
+  assert.strictEqual(ok.value.color, 'cyan');
+  const empty = validateProjectInput({ name: 'X', type: 'static', path: 'C:/a.html' }, { partial: false });
+  assert.strictEqual(empty.value.color, '');
+  const bad = validateProjectInput({ name: 'X', type: 'static', path: 'C:/a.html', color: 'pink' }, { partial: false });
+  assert.ok(bad.errors.some((e) => e.includes('color')));
+});

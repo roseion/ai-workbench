@@ -6,8 +6,14 @@
   --bg-glow: #1b274055;
   --card: #161b25;
   --card-hover: #1a202c;
-  --card-running: #122a1f;
-  --card-running-border: #2e8f6355;
+  --c-red-bg: #2a1518;    --c-red-bd: #f8717140;
+  --c-orange-bg: #2a1c10; --c-orange-bd: #fb923c40;
+  --c-yellow-bg: #2a2410; --c-yellow-bd: #fbbf2440;
+  --c-green-bg: #122a1d;  --c-green-bd: #34d39940;
+  --c-cyan-bg: #0e262a;   --c-cyan-bd: #22d3ee40;
+  --c-blue-bg: #131c2e;   --c-blue-bd: #60a5fa40;
+  --c-purple-bg: #1d162b; --c-purple-bd: #a78bfa40;
+  --ok-ring: #34d39944;
   --border: #262d3b;
   --border-strong: #34405475;
   --text: #e8ebf1;
@@ -46,8 +52,14 @@
   --bg-glow: #d8e4f880;
   --card: #ffffff;
   --card-hover: #ffffff;
-  --card-running: #e9f9f1;
-  --card-running-border: #34d39966;
+  --c-red-bg: #fdeeee;    --c-red-bd: #f8717166;
+  --c-orange-bg: #fef1e7; --c-orange-bd: #fb923c66;
+  --c-yellow-bg: #fdf8e2; --c-yellow-bd: #fbbf2466;
+  --c-green-bg: #e9f8f0;  --c-green-bd: #34d39966;
+  --c-cyan-bg: #e8f7fa;   --c-cyan-bd: #22d3ee66;
+  --c-blue-bg: #eaf1fd;   --c-blue-bd: #60a5fa66;
+  --c-purple-bg: #f3eefd; --c-purple-bd: #a78bfa66;
+  --ok-ring: #34d39955;
   --border: #dfe4ec;
   --border-strong: #c6d0de;
   --text: #1d2536;
@@ -167,8 +179,8 @@ main { padding: 24px 28px 60px; }
 }
 
 .card {
-  background: var(--card);
-  border: 1px solid var(--border);
+  background: var(--card-bg, var(--card));
+  border: 1px solid var(--card-bd, var(--border));
   border-radius: var(--radius);
   padding: 16px 18px;
   display: flex;
@@ -182,13 +194,23 @@ main { padding: 24px 28px 60px; }
 .card input { cursor: text; }
 .card .btn { cursor: pointer; }
 .card:hover {
-  border-color: var(--border-strong);
+  border-color: var(--card-bd, var(--border-strong));
   box-shadow: var(--shadow-card);
-  background: var(--card-hover);
+  background: var(--card-bg, var(--card-hover));
 }
-/* 正在运行：绿色背景 + 置顶（排序在 render 中完成） */
-.card.running { background: var(--card-running); border-color: var(--card-running-border); }
-.card.running:hover { background: var(--card-running); border-color: var(--card-running-border); }
+/* 运行中：亮色描边圈（背景仍可用自选颜色） */
+.card.running, .card.running:hover {
+  border-color: var(--ok);
+  box-shadow: 0 0 0 1px var(--ok), 0 0 12px var(--ok-ring);
+}
+/* 七色背景（变量在主题块中按深/浅主题取值） */
+.card.c-red    { --card-bg: var(--c-red-bg);    --card-bd: var(--c-red-bd); }
+.card.c-orange { --card-bg: var(--c-orange-bg); --card-bd: var(--c-orange-bd); }
+.card.c-yellow { --card-bg: var(--c-yellow-bg); --card-bd: var(--c-yellow-bd); }
+.card.c-green  { --card-bg: var(--c-green-bg);  --card-bd: var(--c-green-bd); }
+.card.c-cyan   { --card-bg: var(--c-cyan-bg);   --card-bd: var(--c-cyan-bd); }
+.card.c-blue   { --card-bg: var(--c-blue-bg);   --card-bd: var(--c-blue-bd); }
+.card.c-purple { --card-bg: var(--c-purple-bg); --card-bd: var(--c-purple-bd); }
 
 .card-head { display: flex; align-items: center; gap: 10px; cursor: grab; }
 .card-head:active { cursor: grabbing; }
@@ -296,7 +318,42 @@ main { padding: 24px 28px 60px; }
   margin-top: auto;
   padding-top: 6px;
   border-top: 1px dashed var(--border);
+  align-items: center;
 }
+
+/* —— 卡片背景调色盘 —— */
+.palette-wrap { position: relative; display: inline-flex; }
+.palette-pop {
+  position: absolute;
+  bottom: calc(100% + 8px);
+  right: 0;
+  z-index: 6;
+  display: flex;
+  gap: 6px;
+  padding: 8px;
+  background: var(--card);
+  border: 1px solid var(--border-strong);
+  border-radius: 10px;
+  box-shadow: var(--shadow-toast);
+}
+.swatch {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 2px solid transparent;
+  cursor: pointer;
+  padding: 0;
+}
+.swatch:hover { transform: scale(1.15); }
+.swatch.active { border-color: var(--text); }
+.sw-none { background: var(--card-hover); border: 1px dashed var(--muted); }
+.sw-red { background: #ef6a6a; }
+.sw-orange { background: #f79b4b; }
+.sw-yellow { background: #e8c447; }
+.sw-green { background: #43c78f; }
+.sw-cyan { background: #38c5d9; }
+.sw-blue { background: #5b96f5; }
+.sw-purple { background: #a58bf5; }
 
 /* —— 分组 —— */
 .group { margin: 0 0 30px; }
