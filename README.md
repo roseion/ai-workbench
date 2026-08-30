@@ -26,7 +26,7 @@
 环境要求：Windows 10/11 + Node.js ≥ 18（使用 Docker 启动器需要 Docker Desktop）。
 
 ```bat
-git clone <repo-url> ai-workbench
+git clone https://github.com/roseion/ai-workbench.git ai-workbench
 cd ai-workbench
 npm install
 npm start

@@ -28,7 +28,7 @@ An open-source **unified manager for local AI services**: manage all the AI serv
 Requirements: Windows 10/11 + Node.js ≥ 18 (Docker Desktop needed for the docker launcher).
 
 ```bat
-git clone <repo-url> ai-workbench
+git clone https://github.com/roseion/ai-workbench.git ai-workbench
 cd ai-workbench
 npm install
 npm start
