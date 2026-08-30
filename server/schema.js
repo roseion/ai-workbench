@@ -20,6 +20,10 @@ const SCHEMA = {
       type: 'string',
       description: '启动器类型（必填）。可用值见 GET /api/v1/types，当前: script / docker / static，可通过插件扩展',
     },
+    groupId: {
+      type: ['string', 'null'],
+      description: '所属分组 id（可省略 = 未分组）。分组列表见 GET /api/v1/groups，可先 POST /api/v1/groups 创建',
+    },
     description: { type: 'string', maxLength: 500, description: '一句话简介' },
     path: {
       type: 'string',

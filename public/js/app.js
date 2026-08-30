@@ -1,6 +1,6 @@
 'use strict';
 
-const state = { projects: [], search: '', noteEditing: false };
+const state = { projects: [], groups: [], search: '', noteEditing: false, groupEditing: false, dragging: false };
 const $ = (sel, el = document) => el.querySelector(sel);
 const $$ = (sel, el = document) => [...el.querySelectorAll(sel)];
 
@@ -52,11 +52,12 @@ function toast(msg, isError = false) {
 
 async function refresh() {
   try {
-    const data = await API.list();
-    state.projects = data.projects;
+    const [pData, gData] = await Promise.all([API.list(), API.groups()]);
+    state.projects = pData.projects;
+    state.groups = gData.groups;
     $('#poll-state').textContent = `5s 自动刷新 · ${new Date().toLocaleTimeString('zh-CN', { hour12: false })}`;
-    // 正在编辑名字备注时不重绘，避免打断输入、丢失焦点
-    if (!state.noteEditing) render();
+    // 正在编辑名字备注/分组名或拖拽中时不重绘，避免打断操作、丢失焦点
+    if (!state.noteEditing && !state.groupEditing && !state.dragging) render();
   } catch (e) {
     $('#poll-state').textContent = '刷新失败，重试中…';
   }
@@ -146,8 +147,42 @@ function cardHTML(p) {
 
 function render() {
   const list = filtered();
-  $('#empty').hidden = list.length > 0;
-  $('#grid').innerHTML = list.map(cardHTML).join('');
+  const searching = state.search.trim() !== '';
+  // 分组区块：按 order 排序的组 + 固定在最后的"未分组"
+  const sections = [...state.groups]
+    .sort((a, b) => a.order - b.order)
+    .map((g) => ({ id: g.id, name: g.name, cards: list.filter((p) => p.groupId === g.id) }));
+  sections.push({
+    id: '',
+    name: '未分组',
+    cards: list.filter((p) => !p.groupId || !state.groups.some((g) => g.id === p.groupId)),
+    ungrouped: true,
+  });
+  const visible = searching ? sections.filter((s) => s.cards.length) : sections;
+  $('#empty').hidden = visible.some((s) => s.cards.length);
+  $('#grid').innerHTML = visible.map(sectionHTML).join('');
+}
+
+function sectionHTML(s) {
+  const head = s.ungrouped
+    ? `<div class="group-head" data-group="">
+        <span class="group-name-static">未分组</span>
+        <span class="group-count">${s.cards.length}</span>
+      </div>`
+    : `<div class="group-head" draggable="true" data-group="${esc(s.id)}" title="拖动可调整分组顺序">
+        <span class="grip">⠿</span>
+        <input class="group-name-input" value="${esc(s.name)}" maxlength="60" spellcheck="false"
+               data-group="${esc(s.id)}" data-orig="${esc(s.name)}" title="点击重命名分组">
+        <span class="group-count">${s.cards.length}</span>
+        <span class="group-actions">
+          <button class="btn mini ghost danger" data-gact="dissolve" data-group="${esc(s.id)}"
+                  title="解散分组，组内项目移回未分组">解散</button>
+        </span>
+      </div>`;
+  return `<section class="group${s.cards.length ? '' : ' empty-group'}" data-group="${esc(s.id)}">
+    ${head}
+    <div class="grid">${s.cards.map(cardHTML).join('')}</div>
+  </section>`;
 }
 
 async function doAction(id, act) {
@@ -230,6 +265,160 @@ function onNameNoteInput(e) {
   state.noteEditing = true;
   clearTimeout(nameNoteTimer);
   nameNoteTimer = setTimeout(() => commitNameNote(e.target), 800);
+}
+
+// —— 分组：就地重命名 / 解散 / 新建 / 拖拽 ——
+let groupNameTimer = null;
+
+async function commitGroupName(input) {
+  clearTimeout(groupNameTimer);
+  const id = input.dataset.group;
+  if (!id) return;
+  const val = input.value.trim();
+  const orig = input.dataset.orig ?? '';
+  if (val !== orig) {
+    if (!val) {
+      input.value = orig;
+      return;
+    }
+    try {
+      const r = await API.updateGroup(id, { name: val });
+      const g = state.groups.find((x) => x.id === id);
+      if (g) g.name = r.group.name;
+      input.dataset.orig = r.group.name;
+      toast('分组已重命名');
+    } catch (e) {
+      toast(e.message, true);
+      input.value = orig;
+    }
+  }
+  if (document.activeElement !== input) {
+    state.groupEditing = false;
+    refresh();
+  }
+}
+
+function onGroupNameInput(e) {
+  state.groupEditing = true;
+  clearTimeout(groupNameTimer);
+  groupNameTimer = setTimeout(() => commitGroupName(e.target), 800);
+}
+
+async function onCreateGroup() {
+  const name = prompt('分组名称：', '新建分组');
+  if (name === null) return;
+  const n = name.trim();
+  if (!n) return toast('分组名不能为空', true);
+  try {
+    await API.createGroup(n);
+    toast('分组已创建，把项目拖进来吧');
+    refresh();
+  } catch (e) {
+    toast(e.message, true);
+  }
+}
+
+async function onDissolveGroup(id) {
+  const g = state.groups.find((x) => x.id === id);
+  if (!g) return;
+  const count = state.projects.filter((p) => p.groupId === id).length;
+  if (!confirm(`解散分组「${g.name}」？${count ? `组内 ${count} 个项目将移回未分组。` : ''}`)) return;
+  try {
+    await API.removeGroup(id);
+    toast('分组已解散');
+  } catch (e) {
+    toast(e.message, true);
+  }
+  refresh();
+}
+
+// —— 拖拽：卡片拖入/拖出分组；分组头部拖动排序 ——
+let dropTargetEl = null;
+
+function setDropTarget(el) {
+  if (dropTargetEl === el) return;
+  clearDrop();
+  dropTargetEl = el;
+  el.classList.add(el.matches('.group-head') ? 'drop-target-head' : 'drop-target-group');
+}
+
+function clearDrop() {
+  if (dropTargetEl) dropTargetEl.classList.remove('drop-target-head', 'drop-target-group');
+  dropTargetEl = null;
+}
+
+function onDragStart(e) {
+  if (e.target.matches && e.target.matches('input')) {
+    e.preventDefault(); // 不拦住的话，输入框内无法用鼠标选中文字
+    return;
+  }
+  const groupHead = e.target.closest('.group-head[draggable="true"]');
+  const card = e.target.closest('.card');
+  if (groupHead) {
+    e.dataTransfer.setData('text/x-wb-group', groupHead.dataset.group);
+    state.dragging = true;
+  } else if (card) {
+    e.dataTransfer.setData('text/x-wb-project', card.dataset.id);
+    state.dragging = true;
+  }
+  e.dataTransfer.effectAllowed = 'move';
+}
+
+function onDragOver(e) {
+  const types = [...e.dataTransfer.types];
+  const isProject = types.includes('text/x-wb-project');
+  const isGroup = types.includes('text/x-wb-group');
+  if (!isProject && !isGroup) return;
+  const section = e.target.closest('.group');
+  if (isProject && section) {
+    e.preventDefault();
+    e.dataTransfer.dropEffect = 'move';
+    setDropTarget(section);
+    return;
+  }
+  if (isGroup) {
+    const head = e.target.closest('.group-head[data-group]:not([data-group=""])');
+    if (head && head.dataset.group) {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      setDropTarget(head);
+    }
+  }
+}
+
+async function onDrop(e) {
+  const section = e.target.closest('.group');
+  clearDrop();
+  const projectId = e.dataTransfer.getData('text/x-wb-project');
+  if (projectId && section) {
+    e.preventDefault();
+    const gid = section.dataset.group || null;
+    try {
+      await API.patch(projectId, { groupId: gid });
+      toast(gid ? '已移入分组' : '已移出分组');
+    } catch (err) {
+      toast(err.message, true);
+    }
+    state.dragging = false;
+    refresh();
+    return;
+  }
+  const groupId = e.dataTransfer.getData('text/x-wb-group');
+  const head = e.target.closest('.group-head[data-group]');
+  if (groupId && head && head.dataset.group && head.dataset.group !== groupId) {
+    e.preventDefault();
+    const order = [...state.groups].sort((a, b) => a.order - b.order).map((g) => g.id);
+    order.splice(order.indexOf(groupId), 1);
+    order.splice(order.indexOf(head.dataset.group), 0, groupId);
+    try {
+      await API.reorderGroups(order);
+      toast('分组已移动');
+    } catch (err) {
+      toast(err.message, true);
+    }
+    state.dragging = false;
+    refresh();
+  }
 }
 
 // —— 复制路径 ——
@@ -370,6 +559,7 @@ function openLogDialog(p) {
 // —— 事件绑定 ——
 function bindEvents() {
   $('#btn-theme').addEventListener('click', toggleTheme);
+  $('#btn-group').addEventListener('click', onCreateGroup);
   $('#btn-add').addEventListener('click', () => openEditDialog(null));
   $('#btn-add-empty').addEventListener('click', () => openEditDialog(null));
   $('#search').addEventListener('input', (e) => {
@@ -378,29 +568,46 @@ function bindEvents() {
   });
 
   $('#grid').addEventListener('focusin', (e) => {
-    if (!e.target.matches('.name-note')) return;
-    state.noteEditing = true;
+    if (e.target.matches('.name-note')) state.noteEditing = true;
+    if (e.target.matches('.group-name-input')) state.groupEditing = true;
   });
   $('#grid').addEventListener('focusout', (e) => {
     if (e.target.matches('.name-note')) commitNameNote(e.target);
+    if (e.target.matches('.group-name-input')) commitGroupName(e.target);
   });
-  $('#grid').addEventListener('input', onNameNoteInput);
+  $('#grid').addEventListener('input', (e) => {
+    if (e.target.matches('.name-note')) onNameNoteInput(e);
+    if (e.target.matches('.group-name-input')) onGroupNameInput(e);
+  });
   $('#grid').addEventListener('keydown', (e) => {
-    if (!e.target.matches('.name-note')) return;
+    const isNote = e.target.matches('.name-note');
+    const isGroupName = e.target.matches('.group-name-input');
+    if (!isNote && !isGroupName) return;
     if (e.key === 'Enter') {
       e.preventDefault();
-      commitNameNote(e.target);
+      isNote ? commitNameNote(e.target) : commitGroupName(e.target);
       e.target.blur();
     } else if (e.key === 'Escape') {
       e.target.value = e.target.dataset.orig ?? '';
-      commitNameNote(e.target);
+      isNote ? commitNameNote(e.target) : commitGroupName(e.target);
       e.target.blur();
     }
+  });
+
+  // 拖拽：项目拖入/拖出分组；分组头部拖动排序
+  $('#grid').addEventListener('dragstart', onDragStart);
+  $('#grid').addEventListener('dragover', onDragOver);
+  $('#grid').addEventListener('drop', onDrop);
+  $('#grid').addEventListener('dragend', () => {
+    state.dragging = false;
+    clearDrop();
   });
 
   $('#grid').addEventListener('click', (e) => {
     const pathEl = e.target.closest('.path');
     if (pathEl && pathEl.dataset.copy) return copyText(pathEl.dataset.copy);
+    const gbtn = e.target.closest('button[data-gact]');
+    if (gbtn && gbtn.dataset.gact === 'dissolve') return onDissolveGroup(gbtn.dataset.group);
     const btn = e.target.closest('button[data-act]');
     if (!btn) return;
     const id = btn.closest('.card')?.dataset.id;

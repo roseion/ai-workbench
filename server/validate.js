@@ -1,10 +1,11 @@
 'use strict';
 const launchers = require('./launchers');
+const store = require('./store');
 
 // 项目入参校验与归一化。
 // path/command/cwd 等字段最终会进入 cmd 命令行，禁止引号与换行，防止参数注入。
 
-const TOP_FIELDS = ['id', 'name', 'nameNote', 'type', 'description', 'path', 'ports', 'urls', 'dependencies', 'tags', 'notes', 'options'];
+const TOP_FIELDS = ['id', 'name', 'nameNote', 'type', 'groupId', 'description', 'path', 'ports', 'urls', 'dependencies', 'tags', 'notes', 'options'];
 const OPTION_KEYS = ['command', 'cwd', 'env', 'processMatch', 'composeFile', 'encoding', 'console'];
 const LIMITS = {
   name: 100, nameNote: 200, description: 500, notes: 5000, path: 500,
@@ -51,6 +52,14 @@ function validateProjectInput(body, { partial = false } = {}) {
     const v = str(body[f]);
     if (v && v.length > LIMITS[f]) errs.push(`${f} 最长 ${LIMITS[f]} 字符`);
     else out[f] = v || '';
+  }
+
+  // 所属分组：null/空 = 未分组，否则必须是已存在的分组
+  if (has('groupId') || !partial) {
+    const gid = has('groupId') ? body.groupId : null;
+    if (gid == null || gid === '') out.groupId = null;
+    else if (!store.getGroup(String(gid))) errs.push(`分组不存在: ${gid}（可用 GET /api/v1/groups 查询）`);
+    else out.groupId = String(gid);
   }
 
   if (has('path') || !partial) {

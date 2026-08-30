@@ -7,6 +7,7 @@ const store = require('./store');
 const launchers = require('./launchers');
 const { router: projectsRouter } = require('./routes/projects');
 const { router: actionsRouter } = require('./routes/actions');
+const { router: groupsRouter } = require('./routes/groups');
 const SCHEMA = require('./schema');
 const { now } = require('./util');
 const pkg = require('../package.json');
@@ -33,6 +34,7 @@ app.get('/api/v1/schema/project', (req, res) => res.json(SCHEMA));
 
 app.use('/api/v1/projects', projectsRouter);
 app.use('/api/v1/projects', actionsRouter);
+app.use('/api/v1/groups', groupsRouter);
 
 app.use('/api', (req, res) => res.status(404).json({ error: { message: '接口不存在，可用接口见 GET /api/v1/schema/project 与 docs/API.md' } }));
 

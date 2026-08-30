@@ -9,6 +9,7 @@ An open-source **unified manager for local AI services**: manage all the AI serv
 ## Features
 
 - 🗂 **Card-based management**: name, description, path (click to copy), per-port status probing, dependencies, tags, and notes
+- 📚 **Groups**: create groups and drag projects in; rename / drag-reorder groups, or dissolve them (projects fall back to ungrouped)
 - ▶️ **Lifecycle control**: start / stop / restart / open in browser; live status refresh (5s polling)
 - 🐳 **Three launcher types**:
   - `script` — bat / cmd / any command (handles bats that detach grandchild processes via `start`: port-based PID lookup + command-line matching fallbacks)

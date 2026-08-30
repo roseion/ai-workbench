@@ -32,6 +32,7 @@ POST /api/v1/projects?upsert=true  # 幂等：id 已存在则合并更新（只�
 | `name` | ✅ | 项目名，≤100 字符 |
 | `nameNote` | 可选 | 名字备注：显示在项目名下方的短备注（≤200 字符，卡片上可就地编辑） |
 | `type` | ✅ | `script` / `docker` / `static`（以 `GET /api/v1/types` 为准） |
+| `groupId` | 可选 | 所属分组 id（省略 = 未分组）。可先 `POST /api/v1/groups` 创建，或 `GET /api/v1/groups` 查询 |
 | `path` | 类型相关 | script: bat/cmd/exe 路径；docker: compose 目录；static: HTML 路径。不能含引号/换行 |
 | `ports` | 可选 | 端口数组（1–65535），用于状态探测与停止定位 |
 | `urls` | 可选 | 「打开」目标，第一个为主地址；静态项目可用 `file:///` |
@@ -111,10 +112,22 @@ GET  /api/v1/schema/project         # 项目 JSON Schema
 ## 编辑与删除
 
 ```
-PATCH  /api/v1/projects/:id   # 部分更新，如 {"notes": "新备注"}
+PATCH  /api/v1/projects/:id   # 部分更新，如 {"notes": "新备注"} 或 {"groupId": "xxx"}
 PUT    /api/v1/projects/:id   # 全量更新
 DELETE /api/v1/projects/:id   # 删除（仅移除记录，不动磁盘文件）
 ```
+
+## 分组
+
+```
+GET    /api/v1/groups               # 分组列表（按 order 排序）
+POST   /api/v1/groups               # 创建，如 {"name": "写作"}
+PATCH  /api/v1/groups/:id           # 重命名 {"name": "..."} / 调整 {"order": 0}
+POST   /api/v1/groups/reorder       # 拖拽排序，提交完整 id 顺序 {"ids": ["g1","g2"]}
+DELETE /api/v1/groups/:id           # 解散分组，组内项目自动移回未分组
+```
+
+项目入组/出组用 `PATCH /api/v1/projects/:id` 提交 `{"groupId": "xxx"}`（null = 未分组）。
 
 ## 推荐流程（AI 同事视角）
 

@@ -110,6 +110,49 @@ test('upsert 部分字段合并保留原值', async () => {
   await jf('DELETE', '/projects/upsert-t');
 });
 
+test('分组：创建 → 项目入组 → 重命名 → 排序 → 解散归还项目', async () => {
+  const g1 = await jf('POST', '/groups', { name: '测试组' });
+  assert.strictEqual(g1.status, 201);
+  const gid = g1.data.group.id;
+
+  // 项目带 groupId 入组；不存在的分组被拒绝
+  const p = await jf('POST', '/projects', {
+    id: 'grp-fixture', name: 'GrpP', type: 'static', path: 'C:/g.html', groupId: gid,
+  });
+  assert.strictEqual(p.status, 201, JSON.stringify(p.data));
+  assert.strictEqual(p.data.project.groupId, gid);
+  const bad = await jf('POST', '/projects', { name: 'BadG', type: 'static', path: 'C:/b.html', groupId: '不存在' });
+  assert.strictEqual(bad.status, 400);
+
+  // 移出分组
+  const out = await jf('PATCH', '/projects/grp-fixture', { groupId: null });
+  assert.strictEqual(out.data.project.groupId, null);
+  const back = await jf('PATCH', '/projects/grp-fixture', { groupId: gid });
+  assert.strictEqual(back.data.project.groupId, gid);
+
+  // 重命名
+  const ren = await jf('PATCH', `/groups/${gid}`, { name: '改名组' });
+  assert.strictEqual(ren.status, 200);
+  assert.strictEqual(ren.data.group.name, '改名组');
+
+  // 排序：新建第二组并放到最前
+  const g2 = await jf('POST', '/groups', { name: '第二组' });
+  const ro = await jf('POST', '/groups/reorder', { ids: [g2.data.group.id, gid] });
+  assert.strictEqual(ro.status, 200);
+  assert.strictEqual(ro.data.groups[0].id, g2.data.group.id);
+
+  // 解散：项目归还未分组
+  const del = await jf('DELETE', `/groups/${gid}`);
+  assert.strictEqual(del.status, 200);
+  assert.strictEqual(del.data.unassigned, 1);
+  const after = await jf('GET', '/projects/grp-fixture');
+  assert.strictEqual(after.data.project.groupId, null);
+
+  // 清理
+  await jf('DELETE', '/projects/grp-fixture');
+  await jf('DELETE', `/groups/${g2.data.group.id}`);
+});
+
 test('校验失败返回 400 与明细', async () => {
   const r = await jf('POST', '/projects', { name: 'Bad', type: 'script' });
   assert.strictEqual(r.status, 400);

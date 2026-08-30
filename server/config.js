@@ -13,6 +13,7 @@ module.exports = {
   token: process.env.WORKBENCH_TOKEN || '',
   dataDir: DATA_DIR,
   projectsFile: path.join(DATA_DIR, 'projects.json'),
+  groupsFile: path.join(DATA_DIR, 'groups.json'),
   logsDir: path.join(DATA_DIR, 'logs'),
   exampleFile: path.join(ROOT, 'data', 'projects.example.json'),
   publicDir: path.join(ROOT, 'public'),

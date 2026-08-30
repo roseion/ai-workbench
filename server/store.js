@@ -2,6 +2,7 @@
 const fs = require('fs');
 const path = require('path');
 const config = require('./config');
+const { now } = require('./util');
 
 // projects.json 的人类可读存储层。所有写操作先落 .tmp 再 rename，避免写坏数据。
 let cache = null;
@@ -94,4 +95,98 @@ function genId(name) {
   return id;
 }
 
-module.exports = { init, list, get, add, replace, remove, genId };
+// —— 分组存储（groups.json）：{id, name, order} ——
+
+let groupsCache = null;
+
+function loadGroups() {
+  if (groupsCache) return groupsCache;
+  ensureDirs();
+  try {
+    const raw = JSON.parse(fs.readFileSync(config.groupsFile, 'utf8'));
+    groupsCache = Array.isArray(raw) ? raw : [];
+  } catch {
+    groupsCache = [];
+  }
+  return groupsCache;
+}
+
+function saveGroups(list) {
+  ensureDirs();
+  const tmp = config.groupsFile + '.tmp';
+  fs.writeFileSync(tmp, JSON.stringify(list, null, 2) + '\n', 'utf8');
+  fs.renameSync(tmp, config.groupsFile);
+  groupsCache = list;
+}
+
+const listGroups = () => loadGroups();
+const getGroup = (id) => loadGroups().find((g) => g.id === id) || null;
+
+function addGroup(name) {
+  const list = loadGroups();
+  const group = {
+    id: 'g' + Date.now().toString(36) + Math.random().toString(36).slice(2, 5),
+    name,
+    order: list.length ? Math.max(...list.map((g) => g.order || 0)) + 1 : 0,
+    createdAt: now(),
+  };
+  list.push(group);
+  saveGroups(list);
+  return group;
+}
+
+function updateGroup(id, patch) {
+  const list = loadGroups();
+  const group = list.find((g) => g.id === id);
+  if (!group) return null;
+  if (patch.name !== undefined) group.name = patch.name;
+  if (patch.order !== undefined) group.order = patch.order;
+  saveGroups(list);
+  return group;
+}
+
+// 解散分组：返回被移回未分组的项目数
+function removeGroup(id) {
+  const list = loadGroups();
+  const i = list.findIndex((g) => g.id === id);
+  if (i < 0) return null;
+  const [group] = list.splice(i, 1);
+  saveGroups(list);
+  const projects = load();
+  let unassigned = 0;
+  for (const p of projects) {
+    if (p.groupId === id) {
+      p.groupId = null;
+      p.updatedAt = now();
+      unassigned++;
+    }
+  }
+  if (unassigned) save(projects);
+  return { group, unassigned };
+}
+
+function reorderGroups(ids) {
+  const list = loadGroups();
+  ids.forEach((id, idx) => {
+    const group = list.find((g) => g.id === id);
+    if (group) group.order = idx;
+  });
+  saveGroups(list);
+  return list.slice().sort((a, b) => a.order - b.order);
+}
+
+module.exports = {
+  init,
+  list,
+  get,
+  add,
+  replace,
+  remove,
+  genId,
+  listGroups,
+  getGroup,
+  addGroup,
+  updateGroup,
+  removeGroup,
+  reorderGroups,
+};

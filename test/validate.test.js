@@ -62,3 +62,9 @@ test('options.console 布尔校验', () => {
   );
   assert.ok(bad.errors.some((e) => e.includes('console')));
 });
+
+test('groupId 缺省为未分组', () => {
+  const v = validateProjectInput({ name: 'X', type: 'static', path: 'C:/a.html' }, { partial: false });
+  assert.ok(v.ok, JSON.stringify(v.errors));
+  assert.strictEqual(v.value.groupId, null);
+});

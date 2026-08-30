@@ -32,4 +32,10 @@ const API = {
   mark: (id, status) => req('POST', `/api/v1/projects/${encodeURIComponent(id)}/mark`, { status }),
   status: (id) => req('GET', `/api/v1/projects/${encodeURIComponent(id)}/status`),
   logs: (id, lines = 300) => req('GET', `/api/v1/projects/${encodeURIComponent(id)}/logs?lines=${lines}`),
+  // 分组
+  groups: () => req('GET', '/api/v1/groups'),
+  createGroup: (name) => req('POST', '/api/v1/groups', { name }),
+  updateGroup: (id, patch) => req('PATCH', `/api/v1/groups/${encodeURIComponent(id)}`, patch),
+  reorderGroups: (ids) => req('POST', '/api/v1/groups/reorder', { ids }),
+  removeGroup: (id) => req('DELETE', `/api/v1/groups/${encodeURIComponent(id)}`),
 };
