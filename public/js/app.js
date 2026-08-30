@@ -543,7 +543,7 @@ async function onSave(e) {
 let logTimer = null;
 async function loadLogs(id) {
   try {
-    const r = await API.logs(id, 300);
+    const r = await API.logs(id, 500); // 与后端环形缓冲上限一致，复制时更完整
     const pre = $('#log-pre');
     pre.innerHTML = r.lines
       .map((l) => {
@@ -629,6 +629,11 @@ function bindEvents() {
   $('#edit-form').addEventListener('submit', onSave);
   $('#btn-cancel').addEventListener('click', () => $('#edit-dialog').close());
   $('#f-type').addEventListener('change', syncTypeFields);
+  $('#btn-log-copy').addEventListener('click', async () => {
+    const text = $('#log-pre').innerText;
+    if (!text.trim()) return toast('日志为空，没有可复制的内容', true);
+    await copyText(text);
+  });
   $('#btn-log-close').addEventListener('click', () => {
     clearInterval(logTimer);
     $('#log-dialog').close();

@@ -5,11 +5,11 @@
     "type": "script",
     "description": "一键拉起 SillyTavern(8000) + AI 写作工坊(8090) + Ollama(11434)",
     "path": "D:\\tool\\start-writing-env.bat",
-    "ports": [8000, 8090, 11434],
+    "ports": [8000, 8090],
     "urls": ["http://127.0.0.1:8000", "http://127.0.0.1:8090"],
     "dependencies": ["Ollama", "Node.js", "SillyTavern", "AI-Writer"],
     "tags": ["写作", "聊天"],
-    "notes": "bat 自带幂等逻辑：已监听的端口会跳过。SillyTavern 与 AI 写作工坊的日志在各自目录的 startup.log。停止会按端口反查进程树并结束。",
+    "notes": "bat 自带幂等逻辑：已监听的端口会跳过。SillyTavern 与 AI 写作工坊的日志在各自目录的 startup.log。停止会按端口反查进程树并结束。ports 只放卡片自己的端口：Ollama(11434) 是共享依赖，不计入状态判定、停止时也不会杀它。",
     "options": {},
     "createdAt": "2026-08-29T00:00:00.000Z",
     "updatedAt": "2026-08-29T00:00:00.000Z"

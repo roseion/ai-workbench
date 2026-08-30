@@ -18,7 +18,8 @@ if not exist node_modules (
 )
 
 echo [ai-workbench] Starting on http://127.0.0.1:8787 ...
-start "ai-workbench" /min cmd /c "node server\index.js"
+rem Redirect server output to data\logs so crashes leave a stack trace on disk.
+start "ai-workbench" /min cmd /c "node server\index.js >>data\logs\server.out.log 2>>data\logs\server.err.log"
 timeout /t 2 >nul
 start "" http://127.0.0.1:8787
 endlocal

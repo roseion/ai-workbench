@@ -418,6 +418,8 @@ main { padding: 24px 28px 60px; }
   margin: 0;
   white-space: pre-wrap;
   word-break: break-all;
+  user-select: text;
+  cursor: text;
 }
 .lg-out { color: var(--log-text); }
 .lg-err { color: var(--danger); }
