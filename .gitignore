@@ -5,6 +5,8 @@ data/groups.json
 data/groups.json.tmp
 data/logs/
 *.log
+tmp-*.js
+tmp-*.ps1
 .DS_Store
 Thumbs.db
 .zcode/
