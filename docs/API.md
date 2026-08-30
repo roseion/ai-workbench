@@ -129,6 +129,8 @@ DELETE /api/v1/groups/:id           # 解散分组，组内项目自动移回未
 
 项目入组/出组用 `PATCH /api/v1/projects/:id` 提交 `{"groupId": "xxx"}`（null = 未分组）。
 
+组内/跨组拖拽排序：`POST /api/v1/projects/reorder`，提交目标分组的完整卡片视觉顺序 `{"ids": ["c2","c1","c3"]}`，服务端按数组下标重写 order。新建项目自动排在同层末尾；`order` 为服务端管理字段，客户端提交会被忽略。
+
 ## 推荐流程（AI 同事视角）
 
 1. 建好项目、确认本地能启动、确定端口和访问地址

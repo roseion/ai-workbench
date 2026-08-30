@@ -175,6 +175,19 @@ function reorderGroups(ids) {
   return list.slice().sort((a, b) => a.order - b.order);
 }
 
+// 卡片排序：order 为全局递增值，前端按 (运行中优先, order) 排序
+function nextOrder() {
+  return load().reduce((max, p) => Math.max(max, typeof p.order === 'number' ? p.order : -1), -1) + 1;
+}
+
+function setOrder(id, order) {
+  const p = get(id);
+  if (!p) return null;
+  p.order = order;
+  save(load());
+  return p;
+}
+
 module.exports = {
   init,
   list,
@@ -183,6 +196,8 @@ module.exports = {
   replace,
   remove,
   genId,
+  nextOrder,
+  setOrder,
   listGroups,
   getGroup,
   addGroup,

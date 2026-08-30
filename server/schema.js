@@ -24,6 +24,11 @@ const SCHEMA = {
       type: ['string', 'null'],
       description: '所属分组 id（可省略 = 未分组）。分组列表见 GET /api/v1/groups，可先 POST /api/v1/groups 创建',
     },
+    order: {
+      type: 'integer',
+      readOnly: true,
+      description: '卡片排序序号（服务端管理，输入时忽略）：前端按「运行中优先，其次 order 升序」排列；拖拽排序经 POST /api/v1/projects/reorder',
+    },
     description: { type: 'string', maxLength: 500, description: '一句话简介' },
     path: {
       type: 'string',

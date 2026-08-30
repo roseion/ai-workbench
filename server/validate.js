@@ -15,9 +15,12 @@ const LIMITS = {
 const str = (v) => (typeof v === 'string' ? v.trim() : undefined);
 const hasCmdMeta = (s) => /[\r\n"]/.test(s);
 
-function validateProjectInput(body, { partial = false } = {}) {
+function validateProjectInput(rawBody, { partial = false } = {}) {
   const errs = [];
   const out = {};
+  // order 由服务端管理（创建/移动/排序接口负责赋值），客户端提交时静默忽略
+  const body = 'order' in rawBody ? { ...rawBody, order: undefined } : rawBody;
+  delete body.order;
   const has = (k) => Object.prototype.hasOwnProperty.call(body, k);
 
   // 未知顶层字段直接拒绝，帮 AI 同事发现字段名拼写错误

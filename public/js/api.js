@@ -30,6 +30,7 @@ const API = {
   remove: (id) => req('DELETE', `/api/v1/projects/${encodeURIComponent(id)}`),
   action: (id, action) => req('POST', `/api/v1/projects/${encodeURIComponent(id)}/${action}`),
   mark: (id, status) => req('POST', `/api/v1/projects/${encodeURIComponent(id)}/mark`, { status }),
+  reorderProjects: (ids) => req('POST', '/api/v1/projects/reorder', { ids }),
   status: (id) => req('GET', `/api/v1/projects/${encodeURIComponent(id)}/status`),
   logs: (id, lines = 300) => req('GET', `/api/v1/projects/${encodeURIComponent(id)}/logs?lines=${lines}`),
   // 分组

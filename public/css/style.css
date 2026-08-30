@@ -343,6 +343,9 @@ main { padding: 24px 28px 60px; }
 }
 .drop-target-group { outline: 2px dashed var(--accent); outline-offset: 3px; border-radius: 12px; }
 .drop-target-head { border-color: var(--accent); background: var(--accent-soft); }
+/* 组内拖动排序：插入位置指示线 */
+.card.drop-before { box-shadow: 0 -3px 0 0 var(--accent); }
+.card.drop-after { box-shadow: 0 3px 0 0 var(--accent); }
 
 /* —— 空状态 —— */
 .empty { text-align: center; color: var(--muted); padding: 80px 0; }

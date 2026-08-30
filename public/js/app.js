@@ -158,9 +158,10 @@ function render() {
     cards: list.filter((p) => !p.groupId || !state.groups.some((g) => g.id === p.groupId)),
     ungrouped: true,
   });
-  // 正在运行的项目在本组内置顶（稳定排序，其余保持原相对顺序）
+  // 排序：运行中优先置顶，其次按 order 升序（拖拽排序写入），未拖过的按原相对顺序
   for (const s of sections) {
-    s.cards.sort((a, b) => (b.status.status === 'running') - (a.status.status === 'running'));
+    const tier = (p) => (p.status.status === 'running' ? 0 : 1);
+    s.cards.sort((a, b) => tier(a) - tier(b) || (a.order ?? Infinity) - (b.order ?? Infinity));
   }
   const visible = searching ? sections.filter((s) => s.cards.length) : sections;
   $('#empty').hidden = visible.some((s) => s.cards.length);
@@ -336,19 +337,20 @@ async function onDissolveGroup(id) {
   refresh();
 }
 
-// —— 拖拽：卡片拖入/拖出分组；分组头部拖动排序 ——
-let dropTargetEl = null;
-
-function setDropTarget(el) {
-  if (dropTargetEl === el) return;
-  clearDrop();
-  dropTargetEl = el;
-  el.classList.add(el.matches('.group-head') ? 'drop-target-head' : 'drop-target-group');
-}
+// —— 拖拽：卡片拖入/拖出分组、组内拖动排序；分组头部拖动排序 ——
+let dragProjectId = null;
+let dropMark = null; // { el, cls }
 
 function clearDrop() {
-  if (dropTargetEl) dropTargetEl.classList.remove('drop-target-head', 'drop-target-group');
-  dropTargetEl = null;
+  if (dropMark) dropMark.el.classList.remove(dropMark.cls);
+  dropMark = null;
+}
+
+function setDropMark(el, cls) {
+  if (dropMark && dropMark.el === el && dropMark.cls === cls) return;
+  clearDrop();
+  dropMark = { el, cls };
+  el.classList.add(cls);
 }
 
 function onDragStart(e) {
@@ -363,7 +365,8 @@ function onDragStart(e) {
     e.dataTransfer.setData('text/x-wb-group', groupHead.dataset.group);
     state.dragging = true;
   } else if (card) {
-    e.dataTransfer.setData('text/x-wb-project', card.dataset.id);
+    dragProjectId = card.dataset.id;
+    e.dataTransfer.setData('text/x-wb-project', dragProjectId);
     state.dragging = true;
   }
   e.dataTransfer.effectAllowed = 'move';
@@ -374,11 +377,23 @@ function onDragOver(e) {
   const isProject = types.includes('text/x-wb-project');
   const isGroup = types.includes('text/x-wb-group');
   if (!isProject && !isGroup) return;
+
+  if (isProject) {
+    // 悬停在其他卡片上：按鼠标在上/下半区决定插到目标卡前/后
+    const cardEl = e.target.closest('.card[draggable="true"]');
+    if (cardEl && cardEl.dataset.id !== dragProjectId) {
+      e.preventDefault();
+      e.dataTransfer.dropEffect = 'move';
+      const rect = cardEl.getBoundingClientRect();
+      setDropMark(cardEl, e.clientY < rect.top + rect.height / 2 ? 'drop-before' : 'drop-after');
+      return;
+    }
+  }
   const section = e.target.closest('.group');
   if (isProject && section) {
     e.preventDefault();
     e.dataTransfer.dropEffect = 'move';
-    setDropTarget(section);
+    setDropMark(section, 'drop-target-group');
     return;
   }
   if (isGroup) {
@@ -386,27 +401,55 @@ function onDragOver(e) {
     if (head && head.dataset.group) {
       e.preventDefault();
       e.dataTransfer.dropEffect = 'move';
-      setDropTarget(head);
+      setDropMark(head, 'drop-target-head');
     }
   }
 }
 
 async function onDrop(e) {
-  const section = e.target.closest('.group');
   clearDrop();
+  const section = e.target.closest('.group');
   const projectId = e.dataTransfer.getData('text/x-wb-project');
-  if (projectId && section) {
+  if (projectId) {
     e.preventDefault();
-    const gid = section.dataset.group || null;
-    try {
-      await API.patch(projectId, { groupId: gid });
-      toast(gid ? '已移入分组' : '已移出分组');
-    } catch (err) {
-      toast(err.message, true);
+    const cardEl = e.target.closest('.card[draggable="true"]');
+    if (cardEl && cardEl.dataset.id !== projectId) {
+      // 插到目标卡前/后：重建目标卡所在区块的卡片顺序
+      const targetId = cardEl.dataset.id;
+      const sectionEl = cardEl.closest('.group');
+      const rect = cardEl.getBoundingClientRect();
+      const before = e.clientY < rect.top + rect.height / 2;
+      const ids = [...sectionEl.querySelectorAll('.card')].map((c) => c.dataset.id).filter((id) => id !== projectId);
+      ids.splice(ids.indexOf(targetId) + (before ? 0 : 1), 0, projectId);
+      const currentGroup = find(projectId)?.groupId ?? null;
+      const targetGroup = sectionEl.dataset.group || null;
+      try {
+        await API.reorderProjects(ids);
+        if ((currentGroup || null) !== targetGroup) await API.patch(projectId, { groupId: targetGroup });
+        toast('已调整位置');
+      } catch (err) {
+        toast(err.message, true);
+      }
+      state.dragging = false;
+      dragProjectId = null;
+      refresh();
+      return;
     }
-    state.dragging = false;
-    refresh();
-    return;
+    if (section) {
+      // 落在组内空白处：移动分组（服务端自动排到该组末尾）
+      e.preventDefault();
+      const gid = section.dataset.group || null;
+      try {
+        await API.patch(projectId, { groupId: gid });
+        toast(gid ? '已移入分组' : '已移出分组');
+      } catch (err) {
+        toast(err.message, true);
+      }
+      state.dragging = false;
+      dragProjectId = null;
+      refresh();
+      return;
+    }
   }
   const groupId = e.dataTransfer.getData('text/x-wb-group');
   const head = e.target.closest('.group-head[data-group]');
@@ -612,6 +655,7 @@ function bindEvents() {
   $('#grid').addEventListener('drop', onDrop);
   $('#grid').addEventListener('dragend', () => {
     state.dragging = false;
+    dragProjectId = null;
     clearDrop();
   });
 

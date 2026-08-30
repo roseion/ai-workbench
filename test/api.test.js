@@ -170,6 +170,34 @@ test('分组：创建 → 项目入组 → 重命名 → 排序 → 解散归还
   await jf('DELETE', `/groups/${g2.data.group.id}`);
 });
 
+test('排序：创建即带递增 order，reorder 按视觉顺序赋值，客户端提交 order 被忽略', async () => {
+  const a = await jf('POST', '/projects', { id: 'ord-a', name: 'A', type: 'static', path: 'C:/a.html' });
+  const b = await jf('POST', '/projects', { id: 'ord-b', name: 'B', type: 'static', path: 'C:/b.html' });
+  const c = await jf('POST', '/projects', { id: 'ord-c', name: 'C', type: 'static', path: 'C:/c.html' });
+  assert.ok(a.data.project.order < b.data.project.order);
+  assert.ok(b.data.project.order < c.data.project.order);
+
+  // 模拟拖拽：把 C 拖到最前
+  const ro = await jf('POST', '/projects/reorder', { ids: ['ord-c', 'ord-a', 'ord-b'] });
+  assert.strictEqual(ro.status, 200);
+  assert.strictEqual((await jf('GET', '/projects/ord-c')).data.project.order, 0);
+  assert.strictEqual((await jf('GET', '/projects/ord-a')).data.project.order, 1);
+  assert.strictEqual((await jf('GET', '/projects/ord-b')).data.project.order, 2);
+
+  // 客户端提交 order 被静默忽略（服务端管理）
+  const ign = await jf('PATCH', '/projects/ord-a', { order: 999 });
+  assert.strictEqual(ign.status, 200);
+  assert.strictEqual(ign.data.project.order, 1);
+
+  // 不存在的项目被拒绝
+  const bad = await jf('POST', '/projects/reorder', { ids: ['ord-a', 'nope'] });
+  assert.strictEqual(bad.status, 400);
+
+  await jf('DELETE', '/projects/ord-a');
+  await jf('DELETE', '/projects/ord-b');
+  await jf('DELETE', '/projects/ord-c');
+});
+
 test('校验失败返回 400 与明细', async () => {
   const r = await jf('POST', '/projects', { name: 'Bad', type: 'script' });
   assert.strictEqual(r.status, 400);
