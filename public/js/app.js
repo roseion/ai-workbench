@@ -214,6 +214,28 @@ async function doAction(id, act) {
   refresh();
 }
 
+// 调色盘展开后按视口边界翻转方向：贴左→向右展开，贴右→向左，贴顶→移到卡片下方
+function positionPalette(pop) {
+  pop.style.left = '';
+  pop.style.right = '';
+  pop.style.top = '';
+  pop.style.bottom = '';
+  const margin = 8;
+  let r = pop.getBoundingClientRect();
+  if (r.left < margin) {
+    pop.style.left = '0';
+    pop.style.right = 'auto';
+  } else if (r.right > window.innerWidth - margin) {
+    pop.style.right = '0';
+    pop.style.left = 'auto';
+  }
+  r = pop.getBoundingClientRect();
+  if (r.top < margin) {
+    pop.style.top = 'calc(100% + 8px)';
+    pop.style.bottom = 'auto';
+  }
+}
+
 async function onCardAction(id, act) {
   const p = find(id);
   if (!p) return;
@@ -680,8 +702,9 @@ function bindEvents() {
     if (palBtn) {
       const pop = palBtn.closest('.palette-wrap').querySelector('.palette-pop');
       const wasHidden = pop.hidden;
-      $$('.palette-pop').forEach((p) => (p.hidden = true));
+      $$('.palette-pop').forEach((p) => { p.hidden = true; p.style.cssText = ''; });
       pop.hidden = !wasHidden;
+      if (!pop.hidden) positionPalette(pop);
       state.paletteOpen = !pop.hidden;
       return;
     }
