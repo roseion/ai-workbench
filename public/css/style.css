@@ -171,7 +171,12 @@ main { padding: 24px 28px 60px; }
   flex-direction: column;
   gap: 10px;
   transition: border-color 0.15s, box-shadow 0.15s, background 0.15s;
+  cursor: grab;
 }
+.card:active { cursor: grabbing; }
+.card .btn, .card .path, .card input { cursor: pointer; }
+.card input { cursor: text; }
+.card .btn { cursor: pointer; }
 .card:hover {
   border-color: var(--border-strong);
   box-shadow: var(--shadow-card);

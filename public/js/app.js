@@ -121,7 +121,7 @@ function cardHTML(p) {
       : '';
 
   return `
-<article class="card" data-id="${esc(p.id)}">
+<article class="card" draggable="true" data-id="${esc(p.id)}">
   <div class="card-head">
     <span class="dot ${st.cls}" title="${st.label}"></span>
     <h3 class="name" title="${esc(p.id)}">${esc(p.name)}</h3>
@@ -348,12 +348,13 @@ function clearDrop() {
 }
 
 function onDragStart(e) {
-  if (e.target.matches && e.target.matches('input')) {
-    e.preventDefault(); // 不拦住的话，输入框内无法用鼠标选中文字
+  // 输入框区域不发起拖拽（否则无法用鼠标选中框内文字）
+  if (e.target.closest && e.target.closest('input, textarea, select')) {
+    e.preventDefault();
     return;
   }
   const groupHead = e.target.closest('.group-head[draggable="true"]');
-  const card = e.target.closest('.card');
+  const card = e.target.closest('.card[draggable="true"]');
   if (groupHead) {
     e.dataTransfer.setData('text/x-wb-group', groupHead.dataset.group);
     state.dragging = true;
@@ -456,6 +457,12 @@ function openEditDialog(p = null) {
   $('#f-composeFile').value = p?.options?.composeFile || '';
   $('#f-ports').value = (p?.ports || []).join(', ');
   $('#f-urls').value = (p?.urls || []).join('\n');
+  // 所属分组下拉框
+  const groupSel = $('#f-group');
+  groupSel.innerHTML =
+    '<option value="">未分组</option>' +
+    state.groups.map((g) => `<option value="${esc(g.id)}">${esc(g.name)}</option>`).join('');
+  groupSel.value = p?.groupId || '';
   $('#f-deps').value = (p?.dependencies || []).join(', ');
   $('#f-tags').value = (p?.tags || []).join(', ');
   $('#f-notes').value = p?.notes || '';
@@ -485,6 +492,7 @@ function collectForm() {
     type,
     description: $('#f-desc').value.trim(),
     path: $('#f-path').value.trim(),
+    groupId: $('#f-group').value || null,
     ports: nums($('#f-ports').value),
     urls: lines($('#f-urls').value),
     dependencies: csv($('#f-deps').value),
