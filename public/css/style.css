@@ -6,6 +6,8 @@
   --bg-glow: #1b274055;
   --card: #161b25;
   --card-hover: #1a202c;
+  --card-running: #122a1f;
+  --card-running-border: #2e8f6355;
   --border: #262d3b;
   --border-strong: #34405475;
   --text: #e8ebf1;
@@ -44,6 +46,8 @@
   --bg-glow: #d8e4f880;
   --card: #ffffff;
   --card-hover: #ffffff;
+  --card-running: #e9f9f1;
+  --card-running-border: #34d39966;
   --border: #dfe4ec;
   --border-strong: #c6d0de;
   --text: #1d2536;
@@ -182,6 +186,9 @@ main { padding: 24px 28px 60px; }
   box-shadow: var(--shadow-card);
   background: var(--card-hover);
 }
+/* 正在运行：绿色背景 + 置顶（排序在 render 中完成） */
+.card.running { background: var(--card-running); border-color: var(--card-running-border); }
+.card.running:hover { background: var(--card-running); border-color: var(--card-running-border); }
 
 .card-head { display: flex; align-items: center; gap: 10px; cursor: grab; }
 .card-head:active { cursor: grabbing; }

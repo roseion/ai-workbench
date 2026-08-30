@@ -121,7 +121,7 @@ function cardHTML(p) {
       : '';
 
   return `
-<article class="card" draggable="true" data-id="${esc(p.id)}">
+<article class="card${p.status.status === 'running' ? ' running' : ''}" draggable="true" data-id="${esc(p.id)}">
   <div class="card-head">
     <span class="dot ${st.cls}" title="${st.label}"></span>
     <h3 class="name" title="${esc(p.id)}">${esc(p.name)}</h3>
@@ -158,6 +158,10 @@ function render() {
     cards: list.filter((p) => !p.groupId || !state.groups.some((g) => g.id === p.groupId)),
     ungrouped: true,
   });
+  // 正在运行的项目在本组内置顶（稳定排序，其余保持原相对顺序）
+  for (const s of sections) {
+    s.cards.sort((a, b) => (b.status.status === 'running') - (a.status.status === 'running'));
+  }
   const visible = searching ? sections.filter((s) => s.cards.length) : sections;
   $('#empty').hidden = visible.some((s) => s.cards.length);
   $('#grid').innerHTML = visible.map(sectionHTML).join('');
