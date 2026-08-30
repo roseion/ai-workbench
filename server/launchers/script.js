@@ -121,6 +121,7 @@ async function stop(project) {
   procman.clearTracking(project.id);
   procman.clearStartRequested(project.id);
   procman.setMarked(project.id, 'stopped');
+  probe.invalidateCommandlineSnapshot(); // 刚结束过进程，丢弃快照缓存，让下一次状态判定读到真实结果
 
   if (selfKill) {
     // 给 HTTP 响应留出发送时间，然后退出自身
@@ -168,7 +169,7 @@ async function restart(project) {
   return start(project);
 }
 
-// 状态判定优先级：端口探测 > tracked PID > 手动标记 > 启动宽限期 > unknown/stopped
+// 状态判定优先级：端口探测 > tracked PID > 命令行匹配（无端口时）> 手动标记 > 启动宽限期 > unknown/stopped
 async function getStatus(project) {
   const runtime = procman.getRuntime(project.id);
   const ports = project.ports || [];
@@ -180,6 +181,19 @@ async function getStatus(project) {
     }
   }
   if (runtime.pids.length > 0) return { status: 'running', ports: portStatus };
+
+  // 无端口项目（TUI 命令行工具、GUI 程序等）兜底：按 options.processMatch 在进程命令行里找。
+  // console 模式拉起的实例，其外层 cmd 立即退出、PID 跟踪失效；用户在终端手动启动的实例更是从未被跟踪——
+  // 只要命令行能匹配上（无论谁启动的），就如实显示运行中；主动确认无匹配则如实显示已停止。
+  const match = project.options && project.options.processMatch;
+  if (!ports.length && match) {
+    if ((await probe.findPidsByCommandline(match)).length) return { status: 'running', ports: null };
+    if (runtime.startRequestedAt && Date.now() - runtime.startRequestedAt < config.startGraceMs) {
+      return { status: 'starting', ports: null };
+    }
+    return { status: 'stopped', ports: null };
+  }
+
   if (runtime.markedStatus === 'running') return { status: 'running', ports: portStatus, marked: true };
   if (runtime.startRequestedAt && Date.now() - runtime.startRequestedAt < config.startGraceMs) {
     return { status: 'starting', ports: portStatus };

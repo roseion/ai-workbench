@@ -50,7 +50,7 @@ const SCHEMA = {
         command: { type: 'string', maxLength: 1000, description: 'script: 自定义启动命令（默认用 path）' },
         cwd: { type: 'string', maxLength: 500, description: 'script: 工作目录（默认 path 所在目录）' },
         env: { type: 'object', description: 'script: 附加环境变量', additionalProperties: { type: 'string' } },
-        processMatch: { type: 'string', maxLength: 200, description: 'script: 停止时按命令行关键字匹配进程（如 daemon.mjs）' },
+        processMatch: { type: 'string', maxLength: 200, description: 'script: 按命令行关键字匹配进程（如 daemon.mjs）。停止兜底；无端口项目还用它判定运行状态——外部手动启动的实例也能被识别' },
         composeFile: { type: 'string', maxLength: 200, description: 'docker: compose 文件名（默认 docker-compose.yml）' },
         encoding: { type: 'string', maxLength: 50, description: 'script: 输出日志编码（如 gbk），默认 utf8' },
         console: { type: 'boolean', description: 'script: 在新控制台窗口运行（等同双击；兼容输出被重定向会解析错位的 bat），此时工作台不捕获日志' },

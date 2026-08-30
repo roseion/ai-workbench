@@ -5,6 +5,7 @@
 const test = require('node:test');
 const assert = require('node:assert');
 const fs = require('node:fs');
+const net = require('node:net');
 const os = require('node:os');
 const path = require('node:path');
 
@@ -13,9 +14,22 @@ process.env.WORKBENCH_PORT = '8799';
 const { server } = require('../server/index.js');
 const BASE = 'http://127.0.0.1:8799/api/v1';
 const FIXTURE_BAT = path.join(__dirname, 'fixtures', 'fixture-start.bat').replace(/\\/g, '/');
-const FIXTURE_PORT = 8917;
+// 动态挑选当前可绑定的端口：Windows 的保留端口段（Hyper-V/WinNAT）每次开机漂移，
+// 固定端口会随机撞上 listen EACCES
+let FIXTURE_PORT = 8917;
 
 const sleep = (ms) => new Promise((r) => setTimeout(r, ms));
+
+function pickFreePort() {
+  return new Promise((resolve, reject) => {
+    const srv = net.createServer();
+    srv.listen(0, '127.0.0.1', () => {
+      const port = srv.address().port;
+      srv.close(() => resolve(port));
+    });
+    srv.on('error', reject);
+  });
+}
 
 test.after(() => new Promise((r) => server.close(r)));
 
@@ -56,18 +70,21 @@ test('种子项目列表带实时状态与能力', async () => {
 });
 
 test('创建 → 启动 → 运行中 → 停止 → 已停止（全链路）', async () => {
+  FIXTURE_PORT = await pickFreePort();
+
   // 清理可能残留的夹具进程，保证起点干净
   const probe = require('../server/probe');
   for (const pid of await probe.findPidsByPort(FIXTURE_PORT)) await probe.killTree(pid);
   await sleep(500);
 
-  // 1. 创建
+  // 1. 创建（端口经 options.env 传给夹具服务）
   const created = await jf('POST', '/projects', {
     id: 'e2e-fixture',
     name: 'E2E Fixture',
     type: 'script',
     path: FIXTURE_BAT,
     ports: [FIXTURE_PORT],
+    options: { env: { FIXTURE_PORT: String(FIXTURE_PORT) } },
     description: '启动/停止链路测试',
   });
   assert.strictEqual(created.status, 201, JSON.stringify(created.data));
@@ -78,7 +95,7 @@ test('创建 → 启动 → 运行中 → 停止 → 已停止（全链路）', 
   assert.strictEqual(started.data.ok, true);
 
   // 3. 端口探测变为运行中（验证孙进程确实被拉起）
-  assert.ok(await waitPort(true), '启动后端口 8917 应处于监听');
+  assert.ok(await waitPort(true), `启动后端口 ${FIXTURE_PORT} 应处于监听`);
 
   // 4. 停止（必须靠端口反查 PID 才能杀到孙进程）
   const stopped = await jf('POST', '/projects/e2e-fixture/stop');
@@ -86,7 +103,7 @@ test('创建 → 启动 → 运行中 → 停止 → 已停止（全链路）', 
   assert.strictEqual(stopped.data.ok, true, JSON.stringify(stopped.data));
 
   // 5. 端口释放
-  assert.ok(await waitPort(false), '停止后端口 8917 应释放');
+  assert.ok(await waitPort(false), `停止后端口 ${FIXTURE_PORT} 应释放`);
 
   // 6. 删除
   const del = await jf('DELETE', '/projects/e2e-fixture');

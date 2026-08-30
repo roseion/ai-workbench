@@ -42,23 +42,61 @@ async function findPidsByPort(port) {
   return [...pids].filter(Number.isInteger);
 }
 
-// PowerShell 按命令行关键字匹配进程 PID。
-// 排除 powershell 自身（其命令行必然含关键字）与工作台进程。
-async function findPidsByCommandline(keyword) {
-  const kw = String(keyword || '').replace(/'/g, "''");
+// 全量进程命令行快照（PID → 进程名 + 命令行），带短 TTL 缓存与在途去重：
+// 状态 5s 轮询下，多张配置了 processMatch 的卡片合并为一次 PowerShell 调用
+const SNAPSHOT_TTL_MS = 4000;
+let snapshot = null; // { at, promise }
+
+function commandlineSnapshot() {
+  if (snapshot && Date.now() - snapshot.at < SNAPSHOT_TTL_MS) return snapshot.promise;
   const script =
     `$ErrorActionPreference='SilentlyContinue'; ` +
-    `Get-CimInstance Win32_Process | Where-Object { ` +
-    `$_.CommandLine -like '*${kw}*' -and ` +
-    `$_.Name -notmatch '^(powershell|pwsh|cmd)\\.exe$' -and ` +
-    `$_.ProcessId -ne ${process.pid} } | ` +
-    `ForEach-Object { $_.ProcessId }`;
-  const r = await run('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', script], { timeoutMs: 20000 });
-  if (r.err && !r.stdout) return [];
-  return r.stdout
-    .split(/\r?\n/)
-    .map((s) => Number(s.trim()))
-    .filter(Number.isInteger);
+    `Get-CimInstance Win32_Process | ForEach-Object { ` +
+    `$t=[char]9; ''+$_.ProcessId+$t+$_.Name+$t+$_.CommandLine }`;
+  const promise = run('powershell.exe', ['-NoProfile', '-NonInteractive', '-Command', script], { timeoutMs: 20000 }).then(
+    (r) => {
+      const map = new Map();
+      for (const line of (r.stdout || '').split(/\r?\n/)) {
+        const pidEnd = line.indexOf('\t');
+        if (pidEnd < 0) continue;
+        const pid = Number(line.slice(0, pidEnd));
+        if (!Number.isInteger(pid)) continue;
+        const rest = line.slice(pidEnd + 1);
+        const nameEnd = rest.indexOf('\t');
+        map.set(pid, {
+          name: nameEnd >= 0 ? rest.slice(0, nameEnd) : '',
+          cmdline: nameEnd >= 0 ? rest.slice(nameEnd + 1) : '',
+        });
+      }
+      return map;
+    },
+    () => {
+      snapshot = null; // 失败不缓存，下次轮询重试
+      return new Map();
+    }
+  );
+  snapshot = { at: Date.now(), promise };
+  return promise;
+}
+
+// 让下一次快照重新拉取（如刚结束/刚拉起进程后，避免旧缓存误导状态显示）
+function invalidateCommandlineSnapshot() {
+  snapshot = null;
+}
+
+// 按命令行关键字匹配进程 PID（大小写不敏感的子串匹配）。
+// 排除 powershell/pwsh/cmd 自身（其命令行常含关键字）与工作台进程。
+async function findPidsByCommandline(keyword) {
+  const kw = String(keyword || '').trim().toLowerCase();
+  if (!kw) return [];
+  const map = await commandlineSnapshot();
+  const pids = [];
+  for (const [pid, { name, cmdline }] of map) {
+    if (/^(powershell|pwsh|cmd)\.exe$/i.test(name)) continue;
+    if (pid === process.pid) continue;
+    if (String(cmdline || '').toLowerCase().includes(kw)) pids.push(pid);
+  }
+  return pids;
 }
 
 // 结束进程树（Windows：taskkill /T 连子进程一起杀）
@@ -91,4 +129,4 @@ function isPidAlive(pid) {
   }
 }
 
-module.exports = { probePort, probePorts, findPidsByPort, findPidsByCommandline, killTree, pidMatchesCommandline, isPidAlive };
+module.exports = { probePort, probePorts, findPidsByPort, findPidsByCommandline, invalidateCommandlineSnapshot, killTree, pidMatchesCommandline, isPidAlive };

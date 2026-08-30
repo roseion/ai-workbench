@@ -42,7 +42,7 @@ POST /api/v1/projects?upsert=true  # 幂等：id 已存在则合并更新（只�
 | `notes` | 可选 | 备注 |
 | `options.command` | 可选 | script: 自定义启动命令（优先于 path） |
 | `options.cwd` / `options.env` | 可选 | script: 工作目录 / 附加环境变量 |
-| `options.processMatch` | 可选 | script: 停止兜底，按命令行关键字匹配（如 `"daemon.mjs"`） |
+| `options.processMatch` | 可选 | script: 按命令行关键字匹配进程（如 `"daemon.mjs"`）。停止兜底；无端口项目还用它判定运行状态——终端手动启动的实例也能被识别 |
 | `options.composeFile` | 可选 | docker: compose 文件名，默认 `docker-compose.yml` |
 | `options.encoding` | 可选 | script: 输出编码，如 `"gbk"` |
 | `options.console` | 可选 | script: `true` 时在新控制台窗口运行（等同双击；兼容输出被重定向会解析错位的 bat），此时工作台不捕获日志 |
