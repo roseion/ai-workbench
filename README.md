@@ -127,6 +127,8 @@ npm test
 
 ## 已知限制
 
+- **Docker 卡片启动失败提示"引擎未运行"**：说明 Docker Desktop 本身没启动（工作台管理的容器跑在它之上）。先启动 Docker Desktop，等其图标变为运行状态后再点「启动」即可
+
 - 工作台启动**之前**由外部手动拉起的"无端口"进程：配置了 `options.processMatch` 的可以正常识别状态并停止（如 dsh / pi 等命令行 Agent，在终端手动启动的实例也能被识别）；未配置的（如无匹配关键字的 GUI 程序）显示"未知"，可在卡片上手动标记，工作台自己启动的实例不受影响
 - bat 内部 `start` 拉起的子服务的 stdout 在各自窗口/日志文件里（如 SillyTavern 的 `startup.log`），工作台日志只捕获主脚本输出
 - `options.processMatch` 按命令行匹配进程，关键字要足够独特，避免误杀同名进程

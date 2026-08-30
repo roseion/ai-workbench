@@ -19,6 +19,11 @@ function composeArgs(project, extra) {
   return args;
 }
 
+// Docker 引擎未运行（Docker Desktop 未启动）时的可读提示
+const DAEMON_DOWN = /failed to connect to the docker API|error during connect|dockerDesktopLinuxEngine|is the docker daemon running/i;
+const daemonHint = (text) =>
+  DAEMON_DOWN.test(text || '') ? 'Docker 引擎未运行（Docker Desktop 未启动），请先启动 Docker Desktop 后重试' : null;
+
 // compose ps 结果做 2 秒缓存，避免 5 秒轮询时频繁起 docker 进程
 let psCache = { key: '', at: 0, value: null };
 
@@ -78,7 +83,7 @@ async function compose(project, extra, timeoutMs) {
 async function start(project) {
   const r = await compose(project, ['up', '-d'], 180000);
   if (r.code === 0) return { ok: true, message: 'docker compose up 完成' };
-  return { ok: false, message: `启动失败: ${tail(r.stderr || r.stdout)}` };
+  return { ok: false, message: daemonHint(r.stderr || r.stdout) || `启动失败: ${tail(r.stderr || r.stdout)}` };
 }
 
 async function stop(project) {
@@ -87,21 +92,21 @@ async function stop(project) {
   procman.appendExternal(project.id, `$ docker compose stop\n${[r.stdout, r.stderr].filter(Boolean).join('\n')}`);
   procman.setMarked(project.id, 'stopped');
   if (r.code === 0) return { ok: true, message: 'docker compose stop 完成' };
-  return { ok: false, message: `停止失败: ${tail(r.stderr || r.stdout)}` };
+  return { ok: false, message: daemonHint(r.stderr || r.stdout) || `停止失败: ${tail(r.stderr || r.stdout)}` };
 }
 
 async function restart(project) {
   const r = await compose(project, ['restart'], 120000);
   if (r.code === 0) return { ok: true, message: 'docker compose restart 完成' };
-  return { ok: false, message: `重启失败: ${tail(r.stderr || r.stdout)}` };
+  return { ok: false, message: daemonHint(r.stderr || r.stdout) || `重启失败: ${tail(r.stderr || r.stdout)}` };
 }
 
 async function update(project) {
   const pull = await compose(project, ['pull'], 600000);
-  if (pull.code !== 0) return { ok: false, message: `拉取镜像失败: ${tail(pull.stderr || pull.stdout)}` };
+  if (pull.code !== 0) return { ok: false, message: daemonHint(pull.stderr || pull.stdout) || `拉取镜像失败: ${tail(pull.stderr || pull.stdout)}` };
   const up = await compose(project, ['up', '-d'], 180000);
   if (up.code === 0) return { ok: true, message: '镜像已更新并重新拉起' };
-  return { ok: false, message: `更新后启动失败: ${tail(up.stderr || up.stdout)}` };
+  return { ok: false, message: daemonHint(up.stderr || up.stdout) || `更新后启动失败: ${tail(up.stderr || up.stdout)}` };
 }
 
 module.exports = { capabilities, start, stop, restart, update, getStatus, openUrls };
